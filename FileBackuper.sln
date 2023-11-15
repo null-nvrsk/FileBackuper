@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34221.43
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileBackuper-Console", "FileBackuper-Console\FileBackuper-Console.csproj", "{2335ECCC-C00F-45D8-8881-CEE77726CA19}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA} = {F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileBackuperLib", "FileBackuperLib\FileBackuperLib.csproj", "{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2335ECCC-C00F-45D8-8881-CEE77726CA19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2335ECCC-C00F-45D8-8881-CEE77726CA19}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2335ECCC-C00F-45D8-8881-CEE77726CA19}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2335ECCC-C00F-45D8-8881-CEE77726CA19}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {64A7038E-C0C1-4A28-981F-4CB1D42DB70C}
+	EndGlobalSection
+EndGlobal
