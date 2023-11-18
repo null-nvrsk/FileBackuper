@@ -96,7 +96,7 @@ public static class FileBackuperLib
             if (!IsFileShouldBeSkipped(fi))
             { 
                 resultList.Add(fi);
-                Trace.WriteLine($"{fi.Length} - {fi.FullName}"); // verbose
+                Trace.WriteLine($"{fi.Length:N0} - {fi.FullName}"); // verbose
             }
         }
 
@@ -227,8 +227,8 @@ public static class FileBackuperLib
             {
                 filePriority += 4;
             }
-            else if (fi.DirectoryName.Contains("recycle.bin") ||
-                fi.DirectoryName.Contains("temp"))
+            else if (fi.DirectoryName.ToLower().Contains("recycle.bin") ||
+                fi.DirectoryName.ToLower().Contains("temp"))
             {
                 filePriority += 3;
             }                    
@@ -244,7 +244,7 @@ public static class FileBackuperLib
                 if (kvp.Value == i)
                 {
                     sortedList.Add(kvp.Key);
-                    Trace.WriteLine($"Key = {kvp.Key}, size = {kvp.Key.Length:N0}, Value = {kvp.Value}"); // verbose
+                    // Trace.WriteLine($"Key = {kvp.Key}, size = {kvp.Key.Length:N0}, Value = {kvp.Value}"); // verbose
                 }
             }
         }
@@ -267,7 +267,8 @@ public static class FileBackuperLib
                 Directory.CreateDirectory(fullDestinationDir);
             }
 
-            File.Copy(fi.FullName, fullDestinationDir + fi.Name);
+            File.Copy(fi.FullName, fullDestinationDir + "\\" + fi.Name);
+            Trace.TraceInformation($"Copy file = {fi.FullName} - size {fi.Length:N0}"); // info
         }
     }
 
@@ -328,21 +329,23 @@ public static class FileBackuperLib
     //----------------------------------------------------------------------
     public static bool IsFileImage(FileInfo fi)
     {
-        return (fi.Extension == ".jpg" ||
-                fi.Extension == ".jpeg" ||
-                fi.Extension == ".heic") ? true : false;
+        string ext = fi.Extension.ToLower();
+        return (ext == ".jpg" ||
+                ext == ".jpeg" ||
+                ext == ".heic") ? true : false;
     }
 
     //----------------------------------------------------------------------
     public static bool IsFileVideo(FileInfo fi)
     {
-        return (fi.Extension == ".mov" ||
-            fi.Extension == ".mp4" ||
-            fi.Extension == ".mpg" ||
-            fi.Extension == ".avi" ||
-            fi.Extension == ".mts" ||
-            fi.Extension == ".3gp" ||
-            fi.Extension == ".asf") ? true : false;
+        string ext = fi.Extension.ToLower();
+        return (ext == ".mov" ||
+                ext == ".mp4" ||
+                ext == ".mpg" ||
+                ext == ".avi" ||
+                ext == ".mts" ||
+                ext == ".3gp" ||
+                ext == ".asf") ? true : false;
     }
     //----------------------------------------------------------------------
     
