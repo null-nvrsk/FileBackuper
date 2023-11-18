@@ -13,12 +13,20 @@ public class Stat
         start = DateTime.Now;
     }
 
-    //---------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     public TimeSpan Stop()
     {
         end = DateTime.Now;
         TimeSpan scanTime = end - start;
         return scanTime;
     }
+
+    //--------------------------------------------------------------------------
+    public TimeSpan GetCurrentTime()
+    {
+        TimeSpan scanTime = DateTime.Now - start;
+        return scanTime;
+    }
+
 
 }

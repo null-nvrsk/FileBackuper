@@ -14,8 +14,8 @@ public static class TraceLoader // TODO: rename to Tracer
             )
         );
 
-        //Trace.AutoFlush = true; // TODO: вкючать AutoFlush (отключать кеширвание) на время отладки
-        Trace.AutoFlush = false; // TODO: вкючать AutoFlush (отключать кеширвание) на время отладки
+        Trace.AutoFlush = true; // TODO: вкючать AutoFlush (отключать кеширвание) на время отладки
+        //Trace.AutoFlush = false; // TODO: вкючать AutoFlush (отключать кеширвание) на время отладки
 
         ConfigurationBuilder builder = new();
 

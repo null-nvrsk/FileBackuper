@@ -249,7 +249,7 @@ public static class FileBackuperLib
             }
         }
 
-        Trace.TraceInformation($"Sorted list size = {sortedList.Count}"); // info
+        Trace.TraceInformation($"Sorted list size = {sortedList.Count:N0}"); // info
         return sortedList;
     }
 
@@ -257,18 +257,32 @@ public static class FileBackuperLib
     // 
     public static void CopyFiles(List<FileInfo> sourceList, string destinationDir)
     {
+        DateTime start = DateTime.Now;
+        int count = 0;
+        long currentFotalSize = 0;
+        long fullFotalSize = 0;
+
+        // Определяем общий размер 
+        foreach (FileInfo fi in sourceList)
+        {
+            fullFotalSize += fi.Length;
+        }
+
+        // 
         foreach (FileInfo fi in sourceList) 
         {
             string fullDestinationDir = destinationDir + "\\" +
                                         fi.DirectoryName?.Replace(":", "");
 
-           if (!Directory.Exists(fullDestinationDir))
+            if (!Directory.Exists(fullDestinationDir))
             {
                 Directory.CreateDirectory(fullDestinationDir);
             }
 
             File.Copy(fi.FullName, fullDestinationDir + "\\" + fi.Name);
-            Trace.TraceInformation($"Copy file = {fi.FullName} - size {fi.Length:N0}"); // info
+            currentFotalSize += fi.Length;
+            long copyPercent = currentFotalSize * 100 / fullFotalSize;
+            Trace.TraceInformation($"[{DateTime.Now - start}][Copied {currentFotalSize:N0} ({copyPercent}%)] Copy file #{++count:N0} = {fi.FullName} - size {fi.Length:N0}"); // info
         }
     }
 

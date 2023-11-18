@@ -31,14 +31,14 @@ internal class Program
         Trace.WriteLine("");// info
         TimeSpan scanTime = stat.Stop();
 
-        Trace.TraceInformation($"Время сканирования: {scanTime.ToString()}"); // info
-        Trace.TraceInformation($"Найдено файлов: {files.Count}"); // info
+        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Время сканирования: {scanTime.ToString()}"); // info
+        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Найдено файлов: {files.Count}"); // info
         long totalSize = 0;
         foreach (var fi in files)
         {
             totalSize += fi.Length;
         }
-        Trace.TraceInformation($"Общий размер файлов: {totalSize:N0} байтов"); // info
+        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Общий размер файлов: {totalSize:N0} байтов"); // info
         Trace.Flush();
 
         Trace.TraceInformation("Начало сортировки"); // info
@@ -47,7 +47,7 @@ internal class Program
         files = SmartSort(files);
 
         scanTime = stat.Stop();
-        Trace.TraceInformation($"Конец сортировки. Время сортировка: {scanTime.ToString()}"); // info
+        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Конец сортировки. Время сортировка: {scanTime.ToString()}"); // info
         Trace.Flush();
 
         // копируем все файлы
@@ -56,7 +56,7 @@ internal class Program
         CopyFiles(files, destionationDir);
         scanTime = stat.Stop();
 
-        Trace.TraceInformation($"Время копирования: {scanTime.ToString()}"); // info
+        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Время копирования: {scanTime.ToString()}"); // info
         double copySpeed = totalSize / scanTime.TotalSeconds;
         Trace.TraceInformation($"Скорость: {(copySpeed / 1024 / 1024)} Mb/s "); // info
         Trace.TraceInformation($"          {(copySpeed / 1024 / 1024 / 1024 * 60)} Gb/min"); // info
