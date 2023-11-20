@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using Microsoft.Extensions.FileSystemGlobbing.Internal;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace FileBackuper;
 
@@ -96,7 +98,7 @@ public static class FileBackuperLib
             if (!IsFileShouldBeSkipped(fi))
             { 
                 resultList.Add(fi);
-                Trace.WriteLine($"{fi.Length:N0} - {fi.FullName}"); // verbose
+                Trace.WriteLine($"{fi.FullName}"); // verbose
             }
         }
 
@@ -216,6 +218,8 @@ public static class FileBackuperLib
                 fi.DirectoryName.ToLower().Contains("icloud") ||
                 fi.DirectoryName.ToLower().Contains("apple") ||
                 fi.DirectoryName.ToLower().Contains("telegram") ||
+                fi.DirectoryName.ToLower().Contains("instagram") ||
+                fi.DirectoryName.ToLower().Contains("whatsapp") ||
                 fi.DirectoryName.ToLower().Contains("dcim") ||
                 fi.DirectoryName.ToLower().Contains("camera") ||
                 fi.DirectoryName.ToLower().Contains("pictures"))
@@ -244,7 +248,10 @@ public static class FileBackuperLib
                 if (kvp.Value == i)
                 {
                     sortedList.Add(kvp.Key);
-                    // Trace.WriteLine($"Key = {kvp.Key}, size = {kvp.Key.Length:N0}, Value = {kvp.Value}"); // verbose
+
+#if DEBUG
+                    Trace.WriteLine($"Key = {kvp.Key}, size = {kvp.Key.Length:N0}, Value = {kvp.Value}"); // verbose
+#endif
                 }
             }
         }
@@ -365,23 +372,50 @@ public static class FileBackuperLib
     
     public static bool IsCamera(FileInfo fi)
     {
-        // TODO: 
-        // IMG_20220103_143124.jpg
-        // 2013-09-16 07.59.34.mp4
-        // video-2013-05-10-18-17-32.mp4
-        //20230501_114303.jpg
-        // 20190331_115946.mp4
-        // 20150414_170108.MOV
-        // VID_20141231_191654.3gp
-        // VID_20180421_110616.mp4
+        string[] patterns =
+        {
+            // IMG_0008.jpg 
+            // IMG_3490.avi
+            "img_\\d{4}\\.(jpe?g|avi)", 
+            
 
-        // photo_2023-06-07_18-08-47.jpg
+            // IMG_20220103_143124.jpg
+            // 20190331_115946.mp4
+            // 20150414_170108.MOV
+            "\\d{8}_\\d{6}\\.(jpe?g|mp4|mpg|mov|3gp)",
+
+            // MVI_1260.AVI
+            "mvi_\\d{4}\\.avi", 
+
+            // IMG-20190218-WA0000.jpg
+            // VID-20201214-WA0028.mp4
+            "(img|vid)-\\d{8}-wa\\d{4}\\.(jpe?g|mp4|mpg)",
+
+            // 2013-02-20 11.30.58.jpg
+            "\\d{4}-\\d{2}-\\d{2}\\s\\d{2}.\\d{2}.\\d{2}\\.jpe?g",
+
+            // DSC_0581.jpg
+            // DSC02803.JPG
+            "dsc.\\d{4}\\.jpe?g",
+
+            // photo_2023-04-15_23-28-07.jpg
+            // video_2022-10-03_15-45-57.mp4
+            "(photo|video)_\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}.*\\.(jpe?g|mp4|mpg)",
+
+        };
+
+        foreach (string pattern in patterns)
+        {
+            if (Regex.IsMatch(fi.Name, pattern, RegexOptions.IgnoreCase))
+                return true;
+        }
+
+        // TODO: 
+        // 2013-09-16 07.59.34.mp4
 
         // проверил до 2008 включительно
-        // IMG_0008.jpg
+
         // foto 002.jpg
-        // IMG_3490.avi
-        // MVI_1260.AVI
 
         // P1000777.JPG
         // P1000942.MOV
@@ -392,7 +426,6 @@ public static class FileBackuperLib
         // EOS11195.JPG
         // SANY1218.JPG
 
-        // DSC00003.JPG
         // STA_0957.jpg
         // STL_0240.JPG
 
