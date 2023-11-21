@@ -300,9 +300,7 @@ public static class FileBackuperLib
                 {
                     sortedList.Add(kvp.Key);
 
-#if DEBUG
                     Trace.WriteLine($"Key = {kvp.Key}, size = {kvp.Key.Length:N0}, Value = {kvp.Value}"); // verbose
-#endif
                 }
             }
         }
@@ -427,8 +425,8 @@ public static class FileBackuperLib
         {
             // IMG_0008.jpg 
             // IMG_3490.avi
-            "img_\\d{4}\\.(jpe?g|avi)", 
-            
+            // MOV_3225.avi
+            "(img|mov)_\\d{4}\\.(jpe?g|avi)", 
 
             // IMG_20220103_143124.jpg
             // 20190331_115946.mp4
@@ -449,10 +447,47 @@ public static class FileBackuperLib
             // DSC02803.JPG
             "dsc.\\d{4}\\.jpe?g",
 
+            // EOS11195.JPG
+            "eos\\d{5}\\.jpe?g",
+
+            // STA_0957.jpg
+            // STL_0240.JPG
+            "st._\\d{4}\\.jpg",
+
+            // SANY1218.JPG
+            "sany\\d{4}\\.jpg",
+
             // photo_2023-04-15_23-28-07.jpg
             // video_2022-10-03_15-45-57.mp4
             "(photo|video)_\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}.*\\.(jpe?g|mp4|mpg)",
 
+            // 2013-09-16 07.59.34.mp4
+            "\\d{4}-\\d{2}-\\d{2}\\s\\d{2}\\.\\d{2}\\.\\d{2}\\.(jpe?g|mp4|mpg)",
+
+            // P1000777.JPG
+            // P1000942.MOV
+            // S1051996.JPG
+            // S1051995.AVI
+            "(p|s)\\d{7}\\.(jpe?g|mov|avi)",
+
+            // foto 002.jpg 
+            "foto\\s\\d{3}\\.jpg",
+
+            // IMAG0008.JPG
+            // IMAG0009.ASF
+            "imag\\d{4}\\.(jpg|asf)",
+            
+            //16072007.3gp
+            "\\d{4}\\.(jpg|asf)",
+
+            //VIDEO0001.3gp
+            "video\\d{4}\\.3gp",
+
+            //M2U00020.MPG
+            "m2u\\d{5}\\.mpg",
+
+            // TODO: 
+            // проверил до 2008 включительно
         };
 
         foreach (string pattern in patterns)
@@ -461,38 +496,7 @@ public static class FileBackuperLib
                 return true;
         }
 
-        // TODO: 
-        // 2013-09-16 07.59.34.mp4
-
-        // проверил до 2008 включительно
-
-        // foto 002.jpg
-
-        // P1000777.JPG
-        // P1000942.MOV
-
-        // S1051996.JPG
-        // S1051995.AVI
-
-        // EOS11195.JPG
-        // SANY1218.JPG
-
-        // STA_0957.jpg
-        // STL_0240.JPG
-
-        //MOV_3225.avi
-
-        //VIDEO0001.3gp
-        //M2U00020.MPG
-
-
-        //16072007.3gp
-
-        // IMAG0008.JPG
-        // IMAG0009.ASF
-
-        return false;
-        //            
+        return false;          
     }
     //----------------------------------------------------------------------
 }
