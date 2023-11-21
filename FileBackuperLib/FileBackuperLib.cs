@@ -155,11 +155,52 @@ public static class FileBackuperLib
             int filePriority = 0; // по умолчанию самый низкий приоритет
 
             // Большие группы по расширению и размеру
-            // 9 - картинки (максимальный приоритет)
-            if (IsFileImage(fi)) filePriority = 900;
+            // (максимальный приоритет)
+
+            // 15 - картинки <0.5 Mb
+            if (fi.Length <= 5_000_000 &&
+                IsFileImage(fi))
+                filePriority = 1500;
+
+            // 14 - картинки 0.5-1 Mb
+            if (fi.Length > 500_000 &&
+                fi.Length <= 1_000_000 &&
+                IsFileImage(fi))
+                filePriority = 1400;
+
+            // 13 - картинки 1-2 Mb
+            if (fi.Length > 1_000_000 &&
+                fi.Length <= 2_000_000 &&
+                IsFileImage(fi))
+                filePriority = 1300;
+
+            // 12 - картинки 2-3 Mb
+            if (fi.Length > 2_000_000 &&
+                fi.Length <= 3_000_000 &&
+                IsFileImage(fi))
+                filePriority = 1200;
+
+            // 11 - картинки 3-4 Mb
+            if (fi.Length > 3_000_000 &&
+                fi.Length <= 4_000_000 &&
+                IsFileImage(fi))
+                filePriority = 1100;
+
+            // 10 - картинки 4-5 Mb
+            if (fi.Length > 4_000_000 &&
+                fi.Length <= 5_000_000 &&
+                IsFileImage(fi))
+                filePriority = 1000;
+
+            // 9 - картинки > 5 Mb
+            if (fi.Length > 5_000_000 && 
+                IsFileImage(fi))
+                filePriority = 900;
 
             // 8 - видео < 100 Mb
-            if (fi.Length <= 100_000_000 && IsFileVideo(fi)) filePriority = 800;
+            if (fi.Length <= 100_000_000 && 
+                IsFileVideo(fi))
+                filePriority = 800;
 
             // 7 - видео 100-200 Mb
             if (fi.Length > 100_000_000 && 
@@ -199,19 +240,16 @@ public static class FileBackuperLib
                 IsFileVideo(fi))
                 filePriority = 100;
 
-            // Средние группы по шаблону имени файла
-            // 1 - фотки и видео с телефона/камеры
-            // 0 - остальные
-            if(IsCamera(fi))
-                filePriority += 10;
 
-            // Малые подгруппы по имени папки:
-            // 5 - фото*, *, *?, *?, *, 
-            // 4 - Desktop, Documents
-            // 3 - корзина, *Recycle.Bin*, Temp
-            // 2 - останьные
-            // 1 - Downloads
 
+            // Средние подгруппы по имени папки:
+            // 40 - фото*, *, *?, *?, *, 
+            // 30 - Desktop, Documents
+            // 20 - по-умолчанию (останьные)
+            // 10 - корзина, *Recycle.Bin *, Temp
+            // 0 - Downloads
+
+            int folderPriority = 20; // по-умолчанию (останьные)
             if (fi.DirectoryName.ToLower().Contains("фото") ||
                 fi.DirectoryName.ToLower().Contains("фотки") ||
                 fi.DirectoryName.ToLower().Contains("foto") ||
@@ -224,24 +262,37 @@ public static class FileBackuperLib
                 fi.DirectoryName.ToLower().Contains("camera") ||
                 fi.DirectoryName.ToLower().Contains("pictures"))
             {
-                filePriority += 5;
+                folderPriority = 40;
             }
             else if (fi.DirectoryName.ToLower().Contains("desktop") ||
                 fi.DirectoryName.ToLower().Contains("documents"))
             {
-                filePriority += 4;
+                folderPriority = 30;
             }
             else if (fi.DirectoryName.ToLower().Contains("recycle.bin") ||
                 fi.DirectoryName.ToLower().Contains("temp"))
             {
-                filePriority += 3;
-            }                    
+                folderPriority = 10;
+            }
+            else if (fi.DirectoryName.ToLower().Contains("downloads") ||
+                fi.DirectoryName.ToLower().Contains("загрузки"))
+            {
+                folderPriority = 0;
+            }
+
+            filePriority += folderPriority;
+
+            // Малые группы по шаблону имени файла
+            // 1 - фотки и видео с телефона/камеры
+            // 0 - остальные
+            if (IsCamera(fi))
+                filePriority += 1;
 
             fileOrderMap.Add(fi, filePriority);
         }
 
 
-        for (int i = 999; i >= 0; i--)
+        for (int i = 1599; i >= 0; i--)
         {
             foreach (KeyValuePair<FileInfo, int> kvp in fileOrderMap)
             {
