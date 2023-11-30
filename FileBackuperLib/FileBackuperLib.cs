@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.FileSystemGlobbing.Internal;
 using System.Diagnostics;
+using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 
 namespace FileBackuper;
@@ -125,15 +126,7 @@ public static class FileBackuperLib
     public static List<FileInfo> SmartSort(List<FileInfo> files)
     {
         // Большие группы по расширению и размеру (Б - без расширения)
-        // 9 - картинки
-        // 8 - видео < 100 Mb 
-        // 7 - видео 100-200 Mb
-        // TODO: 6 - без расширения (проверка по собержимому) 
-        // 5 - видео 200-300 Mb
-        // 4 - видео 300-400 Mb
-        // 3 - видео 400-500 Mb
-        // 2 - видео 500-1000 Mb
-        // 1 - видео 1-4 Gb
+
 
         // Средние группы по шаблону имени файла
         // 1 - фотки и видео с телефона/камеры
@@ -157,89 +150,50 @@ public static class FileBackuperLib
             // Большие группы по расширению и размеру
             // (максимальный приоритет)
 
-            // 15 - картинки <0.5 Mb
-            if (fi.Length <= 5_000_000 &&
-                IsFileImage(fi))
-                filePriority = 1500;
+            if (IsFileImage(fi))
+            {
+                filePriority = 10_000; // приоритет выше видео-файлов
+                if (fi.Length > 30_000 && fi.Length <= 10_000_000)
+                    filePriority += 1000;
 
-            // 14 - картинки 0.5-1 Mb
-            if (fi.Length > 500_000 &&
-                fi.Length <= 1_000_000 &&
-                IsFileImage(fi))
-                filePriority = 1400;
+                // картинки 30k-200k - максиммальный приоритет
+                // 30k-200k = 99*100 + 3000 = 12900
+                if (fi.Length > 30_000 && fi.Length <= 200_000)
+                {
+                    filePriority += 99 * 100;
+                }
 
-            // 13 - картинки 1-2 Mb
-            if (fi.Length > 1_000_000 &&
-                fi.Length <= 2_000_000 &&
-                IsFileImage(fi))
-                filePriority = 1300;
+                // 0.2M-10M (шаг 100k) 98 уровней
+                // 0.2М - 0.3М = 98 * 100 + 3000 = 12800
+                // 9.9M - 10M = 1 * 100 + 3000 = 3100
+                else if (fi.Length > 200_000 && fi.Length <= 10_000_000)
+                {
+                    int level = 98 - (int)((fi.Length - 200_000) / 100_000);
+                    filePriority += level * 100;
+                }
 
-            // 12 - картинки 2-3 Mb
-            if (fi.Length > 2_000_000 &&
-                fi.Length <= 3_000_000 &&
-                IsFileImage(fi))
-                filePriority = 1200;
-
-            // 11 - картинки 3-4 Mb
-            if (fi.Length > 3_000_000 &&
-                fi.Length <= 4_000_000 &&
-                IsFileImage(fi))
-                filePriority = 1100;
-
-            // 10 - картинки 4-5 Mb
-            if (fi.Length > 4_000_000 &&
-                fi.Length <= 5_000_000 &&
-                IsFileImage(fi))
-                filePriority = 1000;
-
-            // 9 - картинки > 5 Mb
-            if (fi.Length > 5_000_000 && 
-                IsFileImage(fi))
-                filePriority = 900;
-
-            // 8 - видео < 100 Mb
-            if (fi.Length <= 100_000_000 && 
-                IsFileVideo(fi))
-                filePriority = 800;
-
-            // 7 - видео 100-200 Mb
-            if (fi.Length > 100_000_000 && 
-                fi.Length <= 200_000_000 && 
-                IsFileVideo(fi))
-                filePriority = 700;
+                // 10M - 20M(шаг 1M) 10 уровней
+                // 10М - 11М = 10 * 100 + 1000 = 2000...
+                // 19М - 20М = 1 * 100 + 1000 = 1100
+                else if (fi.Length > 10_000_000 && fi.Length <= 20_000_000)
+                {
+                    int level = 10 - (int)((fi.Length - 10_000_000) / 1_000_000);
+                    filePriority += level * 100;
+                }
+            }
+            else if(IsFileVideo(fi))
+            {
+                // 0-4G (шаг 50M) 80 уровней
+                // 0М - 50М = 80 * 100 = 8000
+                // 3950M -4000M = 1 * 100  = 100
+                if (fi.Length <= 4_000_000_000)
+                {
+                    int level = 80 - (int)((fi.Length) / 50_000_000);
+                    filePriority += level * 100;
+                }
+            }
 
             // TODO: 6 - без расширения (проверка по собержимому) 
-
-            // 5 - видео 200-300 Mb
-            if (fi.Length > 200_000_000 &&
-                fi.Length <= 300_000_000 &&
-                IsFileVideo(fi))
-                filePriority = 500;
-
-            // 4 - видео 300-400 Mb
-            if (fi.Length > 300_000_000 &&
-                fi.Length <= 400_000_000 &&
-                IsFileVideo(fi))
-                filePriority = 400;
-
-            // 3 - видео 400-500 Mb
-            if (fi.Length > 400_000_000 &&
-                fi.Length <= 500_000_000 &&
-                IsFileVideo(fi))
-                filePriority = 300;
-
-            // 2 - видео 500-1000 Mb
-            if (fi.Length > 500_000_000 &&
-                fi.Length <= 1_000_000_000 &&
-                IsFileVideo(fi))
-                filePriority = 200;
-
-            // 1 - видео 1-4 Gb
-            if (fi.Length > 1_000_000_000 &&
-                fi.Length <= 4_000_000_000 &&
-                IsFileVideo(fi))
-                filePriority = 100;
-
 
 
             // Средние подгруппы по имени папки:
@@ -292,7 +246,7 @@ public static class FileBackuperLib
         }
 
 
-        for (int i = 1599; i >= 0; i--)
+        for (int i = 25000; i >= 0; i--)
         {
             foreach (KeyValuePair<FileInfo, int> kvp in fileOrderMap)
             {
