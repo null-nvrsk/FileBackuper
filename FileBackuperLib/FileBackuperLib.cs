@@ -153,12 +153,12 @@ public static class FileBackuperLib
             if (IsFileImage(fi))
             {
                 filePriority = 10_000; // приоритет выше видео-файлов
-                if (fi.Length > 30_000 && fi.Length <= 10_000_000)
+                if (fi.Length > 10_000 && fi.Length <= 10_000_000)
                     filePriority += 1000;
 
-                // картинки 30k-200k - максиммальный приоритет
-                // 30k-200k = 99*100 + 3000 = 12900
-                if (fi.Length > 30_000 && fi.Length <= 200_000)
+                // картинки 10k-200k - максиммальный приоритет
+                // 10k-200k = 99*100 + 3000 = 12900
+                if (fi.Length > 10_000 && fi.Length <= 200_000)
                 {
                     filePriority += 99 * 100;
                 }
@@ -322,7 +322,7 @@ public static class FileBackuperLib
             return true;
 
         // предварительная проверка размера
-        if (fi.Length < 30_000 || fi.Length > 4_000_000_000)
+        if (fi.Length < 10_000 || fi.Length > 4_000_000_000)
         {
             //Trace.WriteLine($"Skip file by size ({fi.Length}) - {fi.Name}"); // Verbose
             return true;
