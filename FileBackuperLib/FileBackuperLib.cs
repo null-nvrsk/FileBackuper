@@ -253,6 +253,7 @@ public static class FileBackuperLib
                 if (kvp.Value == i)
                 {
                     sortedList.Add(kvp.Key);
+                    Stat.AddFileToTolalStat(kvp.Key);
 
                     Trace.WriteLine($"Key = {kvp.Key}, size = {kvp.Key.Length:N0}, Value = {kvp.Value}"); // verbose
                 }
@@ -289,10 +290,21 @@ public static class FileBackuperLib
                 Directory.CreateDirectory(fullDestinationDir);
             }
 
-            File.Copy(fi.FullName, fullDestinationDir + "\\" + fi.Name);
-            currentFotalSize += fi.Length;
-            long copyPercent = currentFotalSize * 100 / fullFotalSize;
-            Trace.TraceInformation($"[{DateTime.Now - start}][Copied {currentFotalSize:N0} ({copyPercent}%)] Copy file #{++count:N0} = {fi.FullName} - size {fi.Length:N0}"); // info
+            try
+            {
+                File.Copy(fi.FullName, fullDestinationDir + "\\" + fi.Name);
+                currentFotalSize += fi.Length;
+                long copyPercent = currentFotalSize * 100 / fullFotalSize;
+                Trace.TraceInformation($"[{DateTime.Now - start}][Copied {currentFotalSize:N0} ({copyPercent}%)] Copy file #{++count:N0} = {fi.FullName} - size {fi.Length:N0}"); // info
+
+                Stat.AddFileToCompletedStat(fi);
+                Stat.RecalculateEstimatedTime();
+
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceWarning($"[{DateTime.Now - start}] {ex.Message}");
+            }
         }
     }
 

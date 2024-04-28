@@ -6,8 +6,6 @@ namespace FileBackuper;
 
 internal class Program
 {
-    static Stat stat = new();
-
     static void Main(string[] args)
     {
         // создаем новую папку
@@ -18,7 +16,7 @@ internal class Program
 
         // сканируем все диски
         Trace.TraceInformation("Начало сканирования"); // info
-        stat.Start();
+        Stat.Start();
         var drives = GetDrivesToScan();
         List<FileInfo> files = new();
         Trace.TraceInformation("Диски:"); // info
@@ -29,34 +27,34 @@ internal class Program
             files.AddRange(RecursiveDirectoryTree(drive.RootDirectory));
         }
         Trace.WriteLine("");// info
-        TimeSpan scanTime = stat.Stop();
+        TimeSpan scanTime = Stat.Stop();
 
-        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Время сканирования: {scanTime.ToString()}"); // info
-        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Найдено файлов: {files.Count}"); // info
+        Trace.TraceInformation($"[{Stat.GetCurrentScanTime()}] Время сканирования: {scanTime.ToString()}"); // info
+        Trace.TraceInformation($"[{Stat.GetCurrentScanTime()}] Найдено файлов: {files.Count}"); // info
         long totalSize = 0;
         foreach (var fi in files)
         {
             totalSize += fi.Length;
         }
-        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Общий размер файлов: {totalSize:N0} байтов"); // info
+        Trace.TraceInformation($"[{Stat.GetCurrentScanTime()}] Общий размер файлов: {totalSize:N0} байтов"); // info
         Trace.Flush();
 
         Trace.TraceInformation("Начало сортировки"); // info
-        stat.Start();
+        Stat.Start();
  
         files = SmartSort(files);
 
-        scanTime = stat.Stop();
-        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Конец сортировки. Время сортировка: {scanTime.ToString()}"); // info
+        scanTime = Stat.Stop();
+        Trace.TraceInformation($"[{Stat.GetCurrentScanTime()}] Конец сортировки. Время сортировка: {scanTime.ToString()}"); // info
         Trace.Flush();
 
         // копируем все файлы
-        stat.Start();
+        Stat.Start();
 
         CopyFiles(files, destionationDir);
-        scanTime = stat.Stop();
+        scanTime = Stat.Stop();
 
-        Trace.TraceInformation($"[{stat.GetCurrentTime()}] Время копирования: {scanTime.ToString()}"); // info
+        Trace.TraceInformation($"[{Stat.GetCurrentScanTime()}] Время копирования: {scanTime.ToString()}"); // info
         double copySpeed = totalSize / scanTime.TotalSeconds;
         Trace.TraceInformation($"Скорость: {(copySpeed / 1024 / 1024)} Mb/s "); // info
         Trace.TraceInformation($"          {(copySpeed / 1024 / 1024 / 1024 * 60)} Gb/min"); // info
