@@ -8,6 +8,10 @@ internal class Program
 {
     static void Main(string[] args)
     {
+        // запуск только одного экземпляра приложения
+        if (System.Diagnostics.Process.GetProcessesByName(System.Diagnostics.Process.GetCurrentProcess().ProcessName).Length > 1)
+            return;
+
         // создаем новую папку
         string destionationDir = CreateDestinationDir();
 
