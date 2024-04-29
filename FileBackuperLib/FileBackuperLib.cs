@@ -152,7 +152,7 @@ public static class FileBackuperLib
 
             if (IsFileImage(fi))
             {
-                filePriority = 10_000; // приоритет выше видео-файлов
+                filePriority = 50_000; // приоритет выше видео-файлов
                 if (fi.Length > 10_000 && fi.Length <= 10_000_000)
                     filePriority += 1000;
 
@@ -183,12 +183,12 @@ public static class FileBackuperLib
             }
             else if(IsFileVideo(fi))
             {
-                // 0-4G (шаг 50M) 80 уровней
-                // 0М - 50М = 80 * 100 = 8000
-                // 3950M -4000M = 1 * 100  = 100
+                // 0-4G (шаг 10M) 400 уровней
+                // 0М - 10М = 400 * 100 = 40_000
+                // 3990M -4000M = 1 * 100  = 100
                 if (fi.Length <= 4_000_000_000)
                 {
-                    int level = 80 - (int)((fi.Length) / 50_000_000);
+                    int level = 400 - (int)((fi.Length) / 10_000_000);
                     filePriority += level * 100;
                 }
             }
@@ -246,7 +246,7 @@ public static class FileBackuperLib
         }
 
 
-        for (int i = 25000; i >= 0; i--)
+        for (int i = 65_000; i >= 0; i--)
         {
             foreach (KeyValuePair<FileInfo, int> kvp in fileOrderMap)
             {
