@@ -1,9 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
-    <RootNamespace>FileBackuper_Console</RootNamespace>
+    	  <OutputType>Exe</OutputType>
+	  <TargetFramework>net6.0</TargetFramework>
+	  <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+	  <!-- или win-arm64 / win-x86 / win-x64, если нужно -->
+	  <SelfContained>true</SelfContained>
+	  <PublishSingleFile>true</PublishSingleFile>
+	  <PublishTrimmed>false</PublishTrimmed>
+	  <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+	  <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+	  <RuntimeIdentifier>win-x86</RuntimeIdentifier>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>Windows Search</AssemblyName>
