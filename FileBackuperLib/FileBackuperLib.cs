@@ -295,7 +295,12 @@ public static class FileBackuperLib
                 File.Copy(fi.FullName, fullDestinationDir + "\\" + fi.Name);
                 currentFotalSize += fi.Length;
                 long copyPercent = currentFotalSize * 100 / fullFotalSize;
-                Trace.TraceInformation($"[{DateTime.Now - start}][Copied {currentFotalSize:N0} ({copyPercent}%)] Copy file #{++count:N0} = {fi.FullName} - size {fi.Length:N0}"); // info
+                double currentSizeInGB = currentFotalSize / 1073741824.0;
+
+                Trace.TraceInformation($"[{(DateTime.Now - start):hh\\:mm\\:ss\\.ff}]" +
+                    $"[Copied {currentSizeInGB:F2} GB ({copyPercent}%)] " + 
+                    $"Copy file #{++count:N0} = {fi.FullName} - " +
+                    $"size {FormatSize(fi.Length)}"); // info
 
                 Stat.AddFileToCompletedStat(fi);
                 Stat.RecalculateEstimatedTime();
@@ -306,6 +311,23 @@ public static class FileBackuperLib
                 Trace.TraceWarning($"[{DateTime.Now - start}] {ex.Message}");
             }
         }
+    }
+
+    //----------------------------------------------------------------------
+
+    public static string FormatSize(long bytes)
+    {
+        double size = bytes;
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        int unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.Length - 1)
+        {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        return $"{size:N2} {units[unitIndex]}";
     }
 
     //----------------------------------------------------------------------

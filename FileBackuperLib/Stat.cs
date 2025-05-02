@@ -46,6 +46,12 @@ public static class Stat
     }
 
     //--------------------------------------------------------------------------
+    public static string GetCurrentScanTimeAsString()
+    {
+        return $"{(DateTime.Now - startTime):hh\\:mm\\:ss\\.ff}";
+    }
+
+    //--------------------------------------------------------------------------
     public static void RecalculateEstimatedTime()
     {
         // пересчитываем расчетное время каждые (10) 30 секунд
