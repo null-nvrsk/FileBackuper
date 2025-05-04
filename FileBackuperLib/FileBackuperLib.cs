@@ -1,6 +1,5 @@
-﻿using Microsoft.Extensions.FileSystemGlobbing.Internal;
+﻿using FileBackuperLib;
 using System.Diagnostics;
-using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 
 namespace FileBackuper;
@@ -10,15 +9,13 @@ public static class FileBackuperLib
     public static string CreateDestinationDir()
     {
         string compName = Environment.MachineName;
-        Trace.TraceInformation($"Machine name: {compName}"); // info
+        Trace.TraceInformation($"Machine name: {compName}");
 
         string newDir = Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()) +
             "Temp\\" +
-            DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") +
-            "_" + 
-            Environment.MachineName;
+            Fingerprint.GetMd5Hash();
 
-        Trace.TraceInformation($"Destination directory: {newDir}"); // info
+        Trace.TraceInformation($"Destination directory: {newDir}"); 
         if (Directory.CreateDirectory(newDir) != null)
             Directory.SetCurrentDirectory(newDir);
 
@@ -40,7 +37,7 @@ public static class FileBackuperLib
             DriveInfo di = new DriveInfo(drive);
             if (!di.IsReady)
             {
-                Trace.TraceWarning("The drive {0} could not be read", di.Name); // warning
+                Trace.TraceWarning("The drive {0} could not be read", di.Name); 
                 continue;
             }
 

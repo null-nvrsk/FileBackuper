@@ -10,7 +10,7 @@ public static class TraceLoader // TODO: rename to Tracer
     {
         Trace.Listeners.Add(
             new TextWriterTraceListener(
-            File.CreateText(Path.Combine(logFolder, "log.txt"))
+            File.CreateText(Path.Combine(logFolder, "log-" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + ".txt"))
             )
         );
 
