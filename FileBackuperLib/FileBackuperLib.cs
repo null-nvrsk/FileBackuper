@@ -252,12 +252,12 @@ public static class FileBackuperLib
                     sortedList.Add(kvp.Key);
                     Stat.AddFileToTolalStat(kvp.Key);
 
-                    Trace.WriteLine($"Key = {kvp.Key}, size = {kvp.Key.Length:N0}, Value = {kvp.Value}"); // verbose
+                    Trace.WriteLine($"Key = {kvp.Key}, size = {kvp.Key.Length:N0}, Value = {kvp.Value}"); 
                 }
             }
         }
 
-        Trace.TraceInformation($"Sorted list size = {sortedList.Count:N0}"); // info
+        Trace.TraceInformation($"Sorted list size = {sortedList.Count:N0}"); 
         return sortedList;
     }
 
@@ -276,7 +276,6 @@ public static class FileBackuperLib
             fullFotalSize += fi.Length;
         }
 
-        // 
         foreach (FileInfo fi in sourceList) 
         {
             string fullDestinationDir = destinationDir + "\\" +
@@ -289,15 +288,40 @@ public static class FileBackuperLib
 
             try
             {
-                File.Copy(fi.FullName, fullDestinationDir + "\\" + fi.Name);
+                string fullSourceFile = fi.FullName;
+                string fullDestinationFile = fullDestinationDir + "\\" + fi.Name;
+
                 currentFotalSize += fi.Length;
                 long copyPercent = currentFotalSize * 100 / fullFotalSize;
                 double currentSizeInGB = currentFotalSize / 1073741824.0;
 
-                Trace.TraceInformation($"[{(DateTime.Now - start):hh\\:mm\\:ss\\.ff}]" +
-                    $"[Copied {currentSizeInGB:F2} GB ({copyPercent}%)] " + 
+                if (File.Exists(fullDestinationFile))
+                {
+                    DateTime sourceModified = File.GetLastWriteTime(fullSourceFile);
+                    DateTime destModified = File.GetLastWriteTime(fullDestinationFile);
+
+                    if (sourceModified > destModified)
+                    {
+                        File.Copy(fullSourceFile, fullDestinationFile, true); // перезапись более новым файлом
+                        Trace.TraceInformation($"[{(DateTime.Now - start):hh\\:mm\\:ss\\.ff}]" +
+                            $"[Copied {currentSizeInGB:F2} GB ({copyPercent}%)] " +
+                            $"Copy file #{++count:N0} = {fi.FullName} - перезапись более новым файлом");
+                    }
+                    else
+                    {
+                        Trace.TraceInformation($"[{(DateTime.Now - start):hh\\:mm\\:ss\\.ff}]" +
+                            $"[Copied {currentSizeInGB:F2} GB ({copyPercent}%)] " +
+                            $"Copy file #{++count:N0} = {fi.FullName} - файл уже существует, пропускаем");
+                    }
+                }
+                else
+                {
+                    File.Copy(fullSourceFile, fullDestinationFile);
+                    Trace.TraceInformation($"[{(DateTime.Now - start):hh\\:mm\\:ss\\.ff}]" +
+                    $"[Copied {currentSizeInGB:F2} GB ({copyPercent}%)] " +
                     $"Copy file #{++count:N0} = {fi.FullName} - " +
-                    $"size {FormatSize(fi.Length)}"); // info
+                    $"size {FormatSize(fi.Length)}");
+                }   
 
                 Stat.AddFileToCompletedStat(fi);
                 Stat.RecalculateEstimatedTime();
@@ -312,7 +336,7 @@ public static class FileBackuperLib
 
     //----------------------------------------------------------------------
 
-    public static string FormatSize(long bytes)
+    static string FormatSize(long bytes)
     {
         double size = bytes;
         string[] units = { "B", "KB", "MB", "GB", "TB" };

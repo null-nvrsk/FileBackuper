@@ -54,7 +54,7 @@ public static class Stat
     //--------------------------------------------------------------------------
     public static void RecalculateEstimatedTime()
     {
-        // пересчитываем расчетное время каждые (10) 30 секунд
+        // пересчитываем расчетное время каждые n секунд
         if ((DateTime.Now - recalculateTime).TotalSeconds < 27)
             return;
 
