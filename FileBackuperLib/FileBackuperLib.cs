@@ -1,5 +1,7 @@
 ﻿using FileBackuperLib;
 using System.Diagnostics;
+using System.Linq.Expressions;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FileBackuper;
@@ -42,7 +44,7 @@ public static class FileBackuperLib
             }
 
             // skip drive where app started
-            if (Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()) == di.Name)
+            if (Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()).ToUpper() == di.Name)
                 continue;
 
             // временно отключаю диск D: (в режиме отладки)
@@ -53,14 +55,6 @@ public static class FileBackuperLib
 
             result.Add(di);
         }
-
-        return result;
-    }
-
-    //----------------------------------------------------------------------
-    public static List<string> GetFileExtendedListToCopy(string drive)
-    {
-        List<string> result = new List<string>();
 
         return result;
     }
@@ -78,12 +72,16 @@ public static class FileBackuperLib
         {
             files = root.GetFiles();
         }
-        catch (UnauthorizedAccessException e)
-        {
-            //log.Add(e.Message);
-            Trace.TraceWarning(e.Message); // warning
-        }
-        catch (DirectoryNotFoundException e)
+        //catch (UnauthorizedAccessException e)
+        //{
+        //    //log.Add(e.Message);
+        //    Trace.TraceWarning(e.Message); // warning
+        //}
+        //catch (DirectoryNotFoundException e)
+        //{
+        //    Trace.TraceWarning(e.Message); // warning
+        //}
+        catch (Exception e)
         {
             Trace.TraceWarning(e.Message); // warning
         }
@@ -109,9 +107,13 @@ public static class FileBackuperLib
             if (IsDirectoryShouldBeSkipped(dirInfo.Name))
                 continue;
 
+            // пропустить папки с символьными ссылками (реализация через ReparsePoint)
+            if ((dirInfo.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                continue;
+
             // рекурсивный поиск файлов по папкам
             var subDirfiles = RecursiveDirectoryTree(dirInfo);
-            if (subDirfiles != null) 
+            if (subDirfiles != null)
                 resultList.AddRange(subDirfiles);
         }
 
@@ -290,6 +292,13 @@ public static class FileBackuperLib
             {
                 string fullSourceFile = fi.FullName;
                 string fullDestinationFile = fullDestinationDir + "\\" + fi.Name;
+                //if (fi.Extension == "")
+                //{
+                //    // если расширение не указано, то определяем его по содержимому
+                //    fullDestinationFile
+                //        = fullDestinationDir + "\\" + fi.Name +
+                //        GetExtentionByContent(fullSourceFile);
+                //} 
 
                 currentFotalSize += fi.Length;
                 long copyPercent = currentFotalSize * 100 / fullFotalSize;
@@ -335,6 +344,22 @@ public static class FileBackuperLib
     }
 
     //----------------------------------------------------------------------
+    private static string GetExtentionByContent(string fullName)
+    {
+        if (IsJpegByContent(fullName))
+        {
+            return ".jpg";
+        }
+        else if (IsHeicByContent(fullName))
+        {
+            return ".heic";
+        }
+        // TODO: добавить раширения для видео
+
+        return "";
+    }
+
+    //----------------------------------------------------------------------
 
     static string FormatSize(long bytes)
     {
@@ -362,7 +387,9 @@ public static class FileBackuperLib
             "Program Files" => true,
             "Program Files (x86)" => true,
             "ProgramData" => true,
-            "AppData" => true,
+#if RELEASE
+            "AppData" => true, // Временно включаем для анализа содержимого папки
+#endif
             "Курсовые работы" => true,
 
             _ => false
@@ -409,22 +436,121 @@ public static class FileBackuperLib
     public static bool IsFileImage(FileInfo fi)
     {
         string ext = fi.Extension.ToLower();
-        return (ext == ".jpg" ||
-                ext == ".jpeg" ||
-                ext == ".heic") ? true : false;
+        if (ext == ".jpg" ||
+            ext == ".jpeg" ||
+            ext == ".heic" ||
+
+            ext == ".cr2" ||
+            ext == ".cr3" ||
+            ext == ".nef" ||
+            ext == ".nrw" ||
+            ext == ".arw" ||
+            ext == ".raf" ||
+            ext == ".orf" ||
+            ext == ".rw2" ||
+            ext == ".pef" ||
+            ext == ".dng" ||
+            ext == ".rwl" ||
+            ext == ".raw" ||
+            ext == ".srw" ||
+            ext == ".x3f") 
+            return true;
+
+        // Проверка файлов без расширения по содержимому
+        //if (ext == "")
+        //    return IsJpegByContent(fi.FullName) || IsHeicByContent(fi.FullName);
+
+        return false;
+    }
+
+    //----------------------------------------------------------------------
+    public static bool IsJpegByContent(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return false;
+
+        byte[] buffer = new byte[4];
+
+        try
+        {
+            using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            {
+                if (fs.Length < 4)
+                    return false;
+
+                // Читаем первые 2 байта
+                fs.Read(buffer, 0, 2);
+                bool startsWithJpeg = buffer[0] == 0xFF && buffer[1] == 0xD8;
+
+                // Читаем последние 2 байта
+                fs.Seek(-2, SeekOrigin.End);
+                fs.Read(buffer, 0, 2);
+                bool endsWithJpeg = buffer[0] == 0xFF && buffer[1] == 0xD9;
+
+                return startsWithJpeg && endsWithJpeg;
+            }
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"Error reading file {filePath}: {ex.Message}");
+            return false;
+        }
+    }
+
+    //----------------------------------------------------------------------
+    public static bool IsHeicByContent(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return false;
+
+        byte[] buffer = new byte[12];
+        try
+        {
+            using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            {
+                if (fs.Length < 12)
+                    return false;
+
+                fs.Read(buffer, 0, 12);
+            }
+
+            // Проверяем на "ftyp"
+            bool isFtyp = buffer[4] == (byte)'f' &&
+                          buffer[5] == (byte)'t' &&
+                          buffer[6] == (byte)'y' &&
+                          buffer[7] == (byte)'p';
+
+            if (!isFtyp)
+                return false;
+
+            // Считываем major brand
+            string brand = Encoding.ASCII.GetString(buffer, 8, 4);
+            string[] knownHeicBrands = { "heic", "heix", "hevc", "mif1", "msf1" };
+
+            return Array.Exists(knownHeicBrands, b => b == brand);
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"Error reading file {filePath}: {ex.Message}");
+            return false;
+        }
     }
 
     //----------------------------------------------------------------------
     public static bool IsFileVideo(FileInfo fi)
     {
         string ext = fi.Extension.ToLower();
-        return (ext == ".mov" ||
-                ext == ".mp4" ||
+        return (ext == ".mp4" ||
                 ext == ".mpg" ||
+                ext == ".mov" ||
                 ext == ".avi" ||
                 ext == ".mts" ||
+                ext == ".m2ts" ||
                 ext == ".3gp" ||
-                ext == ".asf") ? true : false;
+                ext == ".webm" ||
+                ext == ".mxf" ||
+                ext == ".ts" ||
+                ext == ".asf") ? true : false; 
     }
     //----------------------------------------------------------------------
     
