@@ -2,7 +2,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace FileBackuperLib
+namespace FileBackuper.Core
 {
     public static class Fingerprint
     {

@@ -3,12 +3,12 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34221.43
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileBackuper-Console", "FileBackuper-Console\FileBackuper-Console.csproj", "{2335ECCC-C00F-45D8-8881-CEE77726CA19}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileBackuper.Console", "FileBackuper.Console\FileBackuper.Console.csproj", "{2335ECCC-C00F-45D8-8881-CEE77726CA19}"
 	ProjectSection(ProjectDependencies) = postProject
 		{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA} = {F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileBackuperLib", "FileBackuperLib\FileBackuperLib.csproj", "{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileBackuper.Core", "FileBackuper.Core\FileBackuper.Core.csproj", "{F0D9BDC3-5B9C-49BD-BA48-0C6CEF7D18EA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

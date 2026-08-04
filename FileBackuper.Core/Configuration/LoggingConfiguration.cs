@@ -2,11 +2,11 @@
 using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
 
-namespace FileBackuper;
+namespace FileBackuper.Core;
 
-public static class TraceLoader // TODO: rename to Tracer
+public static class LoggingConfiguration
 {
-    public static void LoadSettings(string logFolder)
+    public static void Configure(string logFolder)
     {
         Trace.Listeners.Add(
             new TextWriterTraceListener(
