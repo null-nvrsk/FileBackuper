@@ -1,0 +1,177 @@
+# Producer|Model|Regex
+
+# --- specific / device-specific ---
+
+Apple||IMG_E[0-9]{4,8}
+
+Google|Pixel|PXL_[0-9]{8}\*[0-9]{9}(?:.[A-Z]{2})?
+Google|Pixel|MVIMG\*[0-9]{8}_[0-9]{6}
+
+Sony|Xperia|Movie_[0-9]{3}
+Sony|Xperia|Photo_[0-9]{3}
+Sony|Xperia|VID_[0-9]{8}_[0-9]{9}
+Sony||_DSC[0-9]{4}
+Sony|Cyber-shot|SDC[0-9]{5}
+Sony|Handycam|M2U[0-9]{5}
+
+Canon|EOS|_MG_[0-9]{4}
+Canon|EOS|MVI_[0-9]{4}
+Canon|PowerShot Hybrid Auto|MDG_[0-9]{4}
+Canon|PowerShot (custom prefix)|ST[A-Z]_[0-9]{4}
+
+Nikon|Coolpix|DSCN[0-9]{4}
+Nikon|DSLR|DSC_[0-9]{4}
+
+Fujifilm||DSCF[0-9]{4}
+Fujifilm|FinePix|S[1-9][0-9]{6}
+
+Samsung||SAM_[0-9]{4}
+Samsung||20\d{6}_\d{6}
+Samsung|Galaxy Camera|GC[0-9]{8}
+Samsung||SNV[0-9]{5}
+Samsung|Digimax|SP_A[0-9]{4}
+Samsung|Digimax|TSMN[0-9]{4}
+Samsung|Digimax A400|SA4[0-9]{5}
+Samsung|L700|SL27[0-9]{4}
+Samsung|Galaxy|20[0-9]{2}-[01][0-9]-[0-3][0-9] [0-2][0-9]\.[0-5][0-9]\.[0-5][0-9]
+
+HP|Photosmart|HPIM[0-9]{4}
+HP|Photosmart|HPDI[0-9]{4}
+
+Huawei||IMG_[0-9]{8}\*[0-9]{6}
+Huawei||VID\*[0-9]{8}_[0-9]{6}
+
+Xiaomi||Screenshot_[0-9]{8}-[0-9]{6}
+Xiaomi||Screenrecorder-[0-9]{8}-[0-9]{6}
+
+OnePlus||IMG20\d{11}
+OnePlus||VID20\d{11}
+
+DJI|Mavic|DJI_[0-9]{14}\*[0-9]{3}
+DJI||DJI\*[0-9]{8}\*[0-9]{6}
+DJI||DJI\*[0-9]{4}
+
+Epson|PhotoPC|EPSN[0-9]{4}
+
+GoPro||GOPR[0-9]{4}
+GoPro||GP[0-9]{6}
+GoPro||GH[0-9]{6}
+GoPro||GX[0-9]{6}
+
+Insta360||VID_[0-9]{8}\*[0-9]{6}\*[0-9]{3}
+Insta360||IMG_[0-9]{8}\*[0-9]{6}\*[0-9]{3}
+Insta360||LRV_[0-9]{4}
+Insta360||PRO_[0-9]{8}_[0-9]{6}
+
+Garmin|VIRB|VIRB[0-9]{4}
+Garmin|DashCam|GARMIN[0-9]{4}
+
+GE|Digital Camera|GEDC[0-9]{4}
+
+Nokia|Series 60|(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[0-2])20\d{2}(?:\(\d+\))?
+
+SANYO|Xacti|SANY[0-9]{4}
+
+BlackVue||[0-9]{8}\*[0-9]{6}[FN]
+70mai||NO[0-9]{4}
+Nextbase||NBDVR[0-9]{4}
+Mio||MIO[0-9]{4}
+Viofo||VIOFO[0-9]{4}
+Thinkware||REC\*[0-9]{8}_[0-9]{6}
+
+Casio|Exilim|CIMG[0-9]{4}
+Kodak|EasyShare|KODAK[0-9]{4}
+Kodak|PixPro|PIXPRO[0-9]{4}
+
+Ricoh|GR|R[0-9]{7}
+Ricoh|Theta|RICOH[0-9]{4}
+Ricoh||RIMG[0-9]{4}
+
+Olympus||PA[0-9]{6}
+Olympus||PB[0-9]{6}
+Olympus||PC[0-9]{6}
+Olympus||_P[0-9]{7}
+Olympus|Camedia|IMGC[0-9]{4}
+
+Pentax||IMGP[0-9]{4}
+Pentax||IMGL[0-9]{4}
+Pentax||PK[0-9]{4}
+Pentax|Adobe RGB|_IGP[0-9]{4}
+
+Panasonic|Lumix|AVCHD
+Panasonic|P2|CONTENTS
+
+Leica||L10[0-9]{5}
+Leica||L_[0-9]{8}
+Leica||L[0-9]{7}
+
+Sigma||SDIM[0-9]{4}
+Sigma||SIGMA[0-9]{4}
+
+Hasselblad||H[0-9]{7}
+Hasselblad||X[0-9]{7}
+
+PhaseOne||IIQ_[0-9]{4}
+Mamiya||M[0-9]{7}
+
+RED||A[0-9]{3}\*C[0-9]{3}\*[0-9]{8}
+Blackmagic||A[0-9]{3}_[0-9]{8}
+Blackmagic|URSA|URSA[0-9]{4}
+
+JVC|Everio|MOV00[0-9]{3}
+JVC|ProHD|JVC[0-9]{4}
+
+Sharp||PIC_[0-9]{4}
+Kyocera||KYOCERA[0-9]{4}
+NEC||NEC[0-9]{4}
+
+Camera360||IMG_C360_[0-9]+
+BeautyCam||BC[0-9]{8}\*[0-9]+
+Meitu||MTXX\*[0-9]+
+Retrica||Retrica_[0-9]+
+
+# --- generic Android/shared patterns ---
+
+Android||20\d{6}\*\d{6}
+Android||IMG[0-9]{8}\*\d{6}
+Android||VID[0-9]{8}_[0-9]{6}
+Android||IMG20\d{11}
+Android||VID20\d{11}
+
+# ===========================
+# Messenger patterns
+# ===========================
+
+WhatsApp|Image|WhatsApp Image \d{4}-\d{2}-\d{2} at \d{2}\.\d{2}\.\d{2}(?: \(\d+\))?
+WhatsApp|Video|WhatsApp Video \d{4}-\d{2}-\d{2} at \d{2}\.\d{2}\.\d{2}(?: \(\d+\))?
+WhatsApp|Image|IMG-[0-9]{8}-WA[0-9]{4}
+Whatsapp|Video|VID-[0-9]{8}-WA[0-9]{4}
+
+Telegram|Image|Telegram Image \d{4}-\d{2}-\d{2} at \d{2}\.\d{2}\.\d{2}(?: \(\d+\))?
+Telegram|Video|Telegram Video \d{4}-\d{2}-\d{2} at \d{2}\.\d{2}\.\d{2}(?: \(\d+\))?
+Telegram|Video Note|video_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}
+
+Viber|Image|image-\d+(?:-\d+)*-[0-9A-Fa-f]{64}-V
+Viber|Video|video-\d+(?:-\d+)*-[0-9A-Fa-f]{64}-V
+Viber|GIF|gif-\d+(?:-\d+)*-[0-9A-Fa-f]{64}-V
+
+# --- fallback / very common patterns ---
+
+Common||IMG_[0-9]{4,8}
+Common||VID_[0-9]{4,8}
+Common||MOV_[0-9]{4,8}
+Common||MOV[0-9]{5}
+Common||VIDEO[0-9]{4}
+Common||DSC[0-9]{4,8}
+Common||CIMG[0-9]{4}
+Common||PICT[0-9]{4}
+Common||IMG[0-9]{5}
+Common||IMAG[0-9]{4}
+Common||P[0-9]{7}
+Common||RIMG[0-9]{4}
+Common||MVI_[0-9]{4}
+Common||CAM[0-9]{4,8}
+Common|DCIM|[1-9][0-9]{2}_[0-9]{4}
+Common|Date|(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[0-2])20\d{2}\d{3}
+Common|Generic Video|video-20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])-([01]\d|2[0-3])-[0-5]\d-[0-5]\d
+Common|DateTime (dash)|20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]) ([01]\d|2[0-3])-[0-5]\d-[0-5]\d
