@@ -6,6 +6,11 @@ namespace FileBackuper.Core;
 
 public static class LoggingConfiguration
 {
+    public static BackupOptions LoadBackupOptions()
+    {
+        return BuildConfiguration().GetSection("Backup").Get<BackupOptions>() ?? new BackupOptions();
+    }
+
     public static void Configure(string logFolder)
     {
         Trace.Listeners.Add(
@@ -18,15 +23,18 @@ public static class LoggingConfiguration
         Trace.AutoFlush = true;
 #endif
 
-        ConfigurationBuilder builder = new();
-
-        builder.SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-
-        IConfigurationRoot configuration = builder.Build();
+        IConfigurationRoot configuration = BuildConfiguration();
         TraceSwitch ts = new(displayName: "FileBackuperSwitch",
                              description: "This switch is set via a JSON cinfig.");
 
         configuration.GetSection("FileBackuperSwitch").Bind(ts);
+    }
+
+    private static IConfigurationRoot BuildConfiguration()
+    {
+        return new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+            .Build();
     }
 }

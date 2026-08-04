@@ -10,21 +10,25 @@ internal class BackupApplication
         if (Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName).Length > 1)
             return;
 
-        string destinationDirectory = FileCopier.CreateDestinationDirectory();
+        BackupOptions options = LoggingConfiguration.LoadBackupOptions();
+        string destinationDirectory = BackupPaths.ResolveDestinationDirectory(options.DestinationDirectory);
+        BackupOptionsValidator.Validate(options, destinationDirectory);
+        FileCopier.CreateDestinationDirectory(destinationDirectory);
+        Stat.ConfigureStatusDirectory(destinationDirectory);
         LoggingConfiguration.Configure(destinationDirectory);
 
-        List<FileInfo> files = ScanFiles();
+        List<FileInfo> files = ScanFiles(destinationDirectory);
         long totalSize = files.Sum(file => file.Length);
         files = OrderFiles(files);
         CopyFiles(files, destinationDirectory, totalSize);
     }
 
-    private static List<FileInfo> ScanFiles()
+    private static List<FileInfo> ScanFiles(string destinationDirectory)
     {
         Stat.Start();
         BackupLog.Info("Начало сканирования");
         List<FileInfo> files = new();
-        List<DriveInfo> drives = FileScanner.GetDrivesToScan();
+        List<DriveInfo> drives = FileScanner.GetDrivesToScan(destinationDirectory);
 
         BackupLog.Info("Диски:");
         foreach (DriveInfo drive in drives)

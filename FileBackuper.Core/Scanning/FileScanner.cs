@@ -4,9 +4,14 @@ namespace FileBackuper.Core;
 
 public static class FileScanner
 {
-    public static List<DriveInfo> GetDrivesToScan()
+    // TODO: заменить рекурсивный Scan на итеративный обход через Stack<DirectoryInfo>
+    // и EnumerationOptions { IgnoreInaccessible = true }, чтобы глубокие или недоступные папки
+    // не приводили к переполнению стека и не останавливали сканирование диска.
+    public static List<DriveInfo> GetDrivesToScan(string destinationDirectory)
     {
         List<DriveInfo> drivesToScan = new();
+        string destinationDrive = Path.GetPathRoot(destinationDirectory)
+            ?? throw new ArgumentException("Не удалось определить диск назначения.", nameof(destinationDirectory));
         foreach (string driveName in Environment.GetLogicalDrives())
         {
             DriveInfo drive = new(driveName);
@@ -16,7 +21,7 @@ public static class FileScanner
                 continue;
             }
 
-            if (Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()).ToUpper() == drive.Name)
+            if (string.Equals(destinationDrive, drive.Name, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             drivesToScan.Add(drive);
@@ -78,6 +83,7 @@ public static class FileScanner
 
     public static bool ShouldSkipFile(FileInfo file)
     {
+        // TODO: добавить автоматические тесты для ограничений размера и blacklist видеофайлов.
         if (!MediaFileClassifier.IsImage(file) && !MediaFileClassifier.IsVideo(file)) return true;
         if (file.Length < 10_000 || file.Length > 4_000_000_000)
         {

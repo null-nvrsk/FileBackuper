@@ -4,6 +4,8 @@ namespace FileBackuper.Core;
 
 public static class FilePriorityService
 {
+    // TODO: добавить автоматические тесты для паттернов камеры и ожидаемого порядка файлов
+    // при одинаковых и разных приоритетах.
     public static List<FileInfo> OrderByBackupPriority(IEnumerable<FileInfo> files)
     {
         Dictionary<FileInfo, int> priorities = new();

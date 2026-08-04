@@ -17,6 +17,9 @@ public static class Stat
     private static long currentFileSize;
     private static readonly StatFile statFile = new();
 
+    public static void ConfigureStatusDirectory(string destinationDirectory) =>
+        statFile.SetRootDirectory(destinationDirectory);
+
     public static void Start() => startTime = DateTime.Now;
 
     public static TimeSpan Stop()

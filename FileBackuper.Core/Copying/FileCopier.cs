@@ -3,15 +3,11 @@ namespace FileBackuper.Core;
 
 public static class FileCopier
 {
-    public static string CreateDestinationDirectory()
+    public static void CreateDestinationDirectory(string destinationDirectory)
     {
         Trace.TraceInformation($"Machine name: {Environment.MachineName}");
-        string destinationDirectory = Path.Combine(
-            Directory.GetDirectoryRoot(Directory.GetCurrentDirectory()), "Temp", Fingerprint.GetMd5Hash());
         Trace.TraceInformation($"Destination directory: {destinationDirectory}");
         Directory.CreateDirectory(destinationDirectory);
-        Directory.SetCurrentDirectory(destinationDirectory);
-        return destinationDirectory;
     }
 
     public static void CopyFiles(IReadOnlyList<FileInfo> sourceFiles, string destinationDirectory)
