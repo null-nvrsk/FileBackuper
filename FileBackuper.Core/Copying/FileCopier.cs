@@ -10,7 +10,8 @@ public static class FileCopier
         Directory.CreateDirectory(destinationDirectory);
     }
 
-    public static void CopyFiles(IReadOnlyList<FileInfo> sourceFiles, string destinationDirectory)
+    public static void CopyFiles(IReadOnlyList<FileInfo> sourceFiles, string destinationDirectory,
+        CancellationToken cancellationToken)
     {
         DateTime startedAt = DateTime.Now;
         int copiedFileCount = 0;
@@ -19,6 +20,7 @@ public static class FileCopier
 
         foreach (FileInfo sourceFile in sourceFiles)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string targetDirectory = destinationDirectory + "\\" + sourceFile.DirectoryName?.Replace(":", "");
             Directory.CreateDirectory(targetDirectory);
             try

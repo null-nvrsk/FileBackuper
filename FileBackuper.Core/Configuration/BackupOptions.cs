@@ -2,6 +2,8 @@ namespace FileBackuper.Core;
 
 public sealed class BackupOptions
 {
+    public bool ShowConsole { get; init; } = false;
+
     public string DestinationDirectory { get; init; } = string.Empty;
     public string? ScanDirectory { get; init; } = null;
     public long MinFileSizeBytes { get; init; } = 10_000;

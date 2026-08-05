@@ -11,19 +11,42 @@ internal class BackupApplication
             return;
 
         BackupOptions options = LoggingConfiguration.LoadBackupOptions();
-        string destinationDirectory = BackupPaths.ResolveDestinationDirectory(options.DestinationDirectory);
-        BackupOptionsValidator.Validate(options, destinationDirectory);
-        FileCopier.CreateDestinationDirectory(destinationDirectory);
-        Stat.ConfigureStatusDirectory(destinationDirectory);
-        LoggingConfiguration.Configure(destinationDirectory);
+        ConsoleWindow.SetVisibility(options.ShowConsole);
 
-        List<FileInfo> files = ScanFiles(destinationDirectory);
-        long totalSize = files.Sum(file => file.Length);
-        files = OrderFiles(files);
-        CopyFiles(files, destinationDirectory, totalSize);
+        using CancellationTokenSource cancellationSource = new();
+        ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
+        {
+            eventArgs.Cancel = true;
+            cancellationSource.Cancel();
+        };
+
+        System.Console.CancelKeyPress += cancelHandler;
+        try
+        {
+            string destinationDirectory = BackupPaths.ResolveDestinationDirectory(options.DestinationDirectory);
+            BackupOptionsValidator.Validate(options, destinationDirectory);
+            FileCopier.CreateDestinationDirectory(destinationDirectory);
+            Stat.ConfigureStatusDirectory(destinationDirectory);
+            LoggingConfiguration.Configure(destinationDirectory);
+
+            List<FileInfo> files = ScanFiles(destinationDirectory, cancellationSource.Token);
+            long totalSize = files.Sum(file => file.Length);
+            files = OrderFiles(files, cancellationSource.Token);
+            CopyFiles(files, destinationDirectory, totalSize, cancellationSource.Token);
+        }
+        catch (OperationCanceledException) when (cancellationSource.IsCancellationRequested)
+        {
+            Stat.Stop();
+            BackupLog.Warning("Операция отменена пользователем.");
+            BackupLog.Flush();
+        }
+        finally
+        {
+            System.Console.CancelKeyPress -= cancelHandler;
+        }
     }
 
-    private static List<FileInfo> ScanFiles(string destinationDirectory)
+    private static List<FileInfo> ScanFiles(string destinationDirectory, CancellationToken cancellationToken)
     {
         Stat.Start();
         BackupLog.Info("Начало сканирования");
@@ -33,8 +56,9 @@ internal class BackupApplication
         BackupLog.Info("Диски:");
         foreach (DriveInfo drive in drives)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             BackupLog.Info($"   {drive.Name}");
-            files.AddRange(FileScanner.Scan(drive.RootDirectory) ?? Enumerable.Empty<FileInfo>());
+            files.AddRange(FileScanner.Scan(drive.RootDirectory, cancellationToken) ?? Enumerable.Empty<FileInfo>());
         }
 
         TimeSpan scanDuration = Stat.Stop();
@@ -45,22 +69,23 @@ internal class BackupApplication
         return files;
     }
 
-    private static List<FileInfo> OrderFiles(List<FileInfo> files)
+    private static List<FileInfo> OrderFiles(List<FileInfo> files, CancellationToken cancellationToken)
     {
         Stat.Start();
         BackupLog.Info("Начало сортировки");
-        List<FileInfo> orderedFiles = FilePriorityService.OrderByBackupPriority(files);
+        List<FileInfo> orderedFiles = FilePriorityService.OrderByBackupPriority(files, cancellationToken);
         TimeSpan sortDuration = Stat.Stop();
         BackupLog.Info($"Конец сортировки. Время сортировки: {sortDuration:hh\\:mm\\:ss\\.ff}");
         BackupLog.Flush();
         return orderedFiles;
     }
 
-    private static void CopyFiles(IReadOnlyList<FileInfo> files, string destinationDirectory, long totalSize)
+    private static void CopyFiles(IReadOnlyList<FileInfo> files, string destinationDirectory, long totalSize,
+        CancellationToken cancellationToken)
     {
         Stat.Start();
         BackupLog.Info("Начало копирования");
-        FileCopier.CopyFiles(files, destinationDirectory);
+        FileCopier.CopyFiles(files, destinationDirectory, cancellationToken);
         TimeSpan copyDuration = Stat.Stop();
 
         BackupLog.Info($"Время копирования: {copyDuration:hh\\:mm\\:ss\\.ff}");

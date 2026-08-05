@@ -6,14 +6,19 @@ public static class FilePriorityService
 {
     // TODO: добавить автоматические тесты для паттернов камеры и ожидаемого порядка файлов
     // при одинаковых и разных приоритетах.
-    public static List<FileInfo> OrderByBackupPriority(IEnumerable<FileInfo> files)
+    public static List<FileInfo> OrderByBackupPriority(IEnumerable<FileInfo> files, CancellationToken cancellationToken)
     {
         Dictionary<FileInfo, int> priorities = new();
-        foreach (FileInfo file in files) priorities.Add(file, CalculatePriority(file));
+        foreach (FileInfo file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            priorities.Add(file, CalculatePriority(file));
+        }
 
         List<FileInfo> orderedFiles = priorities.OrderByDescending(pair => pair.Value).Select(pair => pair.Key).ToList();
         foreach (FileInfo file in orderedFiles)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             Stat.AddFileToTolalStat(file);
             Trace.WriteLine($"Key = {file}, size = {file.Length:N0}, Value = {priorities[file]}");
         }

@@ -30,7 +30,7 @@ public static class FileScanner
         return drivesToScan;
     }
 
-    public static List<FileInfo>? Scan(DirectoryInfo root)
+    public static List<FileInfo>? Scan(DirectoryInfo root, CancellationToken cancellationToken)
     {
         List<FileInfo> result = new();
         FileInfo[] files;
@@ -43,6 +43,7 @@ public static class FileScanner
 
         foreach (FileInfo file in files)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (ShouldSkipFile(file)) continue;
             result.Add(file);
             Trace.WriteLine(file.FullName);
@@ -58,11 +59,12 @@ public static class FileScanner
 
         foreach (DirectoryInfo directory in subdirectories)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (ShouldSkipDirectory(directory.Name) ||
                 (directory.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
                 continue;
 
-            List<FileInfo>? nestedFiles = Scan(directory);
+            List<FileInfo>? nestedFiles = Scan(directory, cancellationToken);
             if (nestedFiles != null) result.AddRange(nestedFiles);
         }
 
