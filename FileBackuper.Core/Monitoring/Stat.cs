@@ -20,6 +20,24 @@ public static class Stat
     public static void ConfigureStatusDirectory(string destinationDirectory) =>
         statFile.SetRootDirectory(destinationDirectory);
 
+    public static void Reset()
+    {
+        statFile.CloseFile();
+        startTime = DateTime.Now;
+        endTime = default;
+        imagesEta = null;
+        totalEta = default;
+        lastRecalculatedAt = default;
+        totalCount = 0;
+        totalSize = 0;
+        completeSize = 0;
+        totalImageSize = 0;
+        completeImageSize = 0;
+        totalVideoSize = 0;
+        completeVideoSize = 0;
+        currentFileSize = 0;
+    }
+
     public static void Start() => startTime = DateTime.Now;
 
     public static TimeSpan Stop()

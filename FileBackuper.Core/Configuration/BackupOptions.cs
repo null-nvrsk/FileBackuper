@@ -4,6 +4,12 @@ public sealed class BackupOptions
 {
     public bool ShowConsole { get; init; } = false;
 
+    public string StateDirectory { get; init; } = string.Empty;
+
+    public int DrivePollingIntervalSeconds { get; init; } = 10;
+
+    public bool MonitorNewDrives { get; init; } = true;
+
     public string DestinationDirectory { get; init; } = string.Empty;
     public string? ScanDirectory { get; init; } = null;
     public long MinFileSizeBytes { get; init; } = 10_000;

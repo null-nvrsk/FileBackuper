@@ -4,6 +4,12 @@ public static class BackupOptionsValidator
 {
     public static void Validate(BackupOptions options, string destinationDirectory)
     {
+        if (options.DrivePollingIntervalSeconds <= 0)
+        {
+            throw new InvalidOperationException(
+                "Интервал проверки дисков должен быть больше нуля.");
+        }
+
         if (string.IsNullOrWhiteSpace(options.ScanDirectory))
             return;
 
