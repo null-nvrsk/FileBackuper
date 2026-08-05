@@ -5,6 +5,17 @@ namespace FileBackuper.Core.Tests.Scanning;
 public class FileScannerTests
 {
     [Fact]
+    public void Scan_FindsSupportedFileInNestedDirectory()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo expectedFile = workspace.CreateFile(Path.Combine("nested", "photo.jpg"), 10_000);
+
+        List<FileInfo> files = FileScanner.Scan(workspace.RootDirectory, CancellationToken.None);
+
+        Assert.Contains(files, file => file.FullName == expectedFile.FullName);
+    }
+
+    [Fact]
     public void ShouldSkipFile_ReturnsTrueForFileSmallerThanMinimumSize()
     {
         using TestWorkspace workspace = new();

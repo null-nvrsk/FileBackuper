@@ -12,9 +12,14 @@ internal sealed class TestWorkspace : IDisposable
     public FileInfo CreateFile(string fileName, int sizeInBytes)
     {
         string filePath = Path.Combine(directoryPath, fileName);
+        string? parentDirectory = Path.GetDirectoryName(filePath);
+        if (parentDirectory != null)
+            Directory.CreateDirectory(parentDirectory);
         File.WriteAllBytes(filePath, new byte[sizeInBytes]);
         return new FileInfo(filePath);
     }
+
+    public DirectoryInfo RootDirectory => new(directoryPath);
 
     public void Dispose()
     {

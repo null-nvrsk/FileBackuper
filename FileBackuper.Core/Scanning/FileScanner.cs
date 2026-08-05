@@ -4,9 +4,6 @@ namespace FileBackuper.Core;
 
 public static class FileScanner
 {
-    // TODO: заменить рекурсивный Scan на итеративный обход через Stack<DirectoryInfo>
-    // и EnumerationOptions { IgnoreInaccessible = true }, чтобы глубокие или недоступные папки
-    // не приводили к переполнению стека и не останавливали сканирование диска.
     public static List<DriveInfo> GetDrivesToScan(string destinationDirectory)
     {
         List<DriveInfo> drivesToScan = new();
@@ -30,42 +27,52 @@ public static class FileScanner
         return drivesToScan;
     }
 
-    public static List<FileInfo>? Scan(DirectoryInfo root, CancellationToken cancellationToken)
+    public static List<FileInfo> Scan(DirectoryInfo root, CancellationToken cancellationToken)
     {
         List<FileInfo> result = new();
-        FileInfo[] files;
-        try { files = root.GetFiles(); }
-        catch (Exception exception)
-        {
-            Trace.TraceWarning(exception.Message);
-            return null;
-        }
+        Stack<DirectoryInfo> directoriesToScan = new();
+        directoriesToScan.Push(root);
 
-        foreach (FileInfo file in files)
+        EnumerationOptions enumerationOptions = new()
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (ShouldSkipFile(file)) continue;
-            result.Add(file);
-            Trace.WriteLine(file.FullName);
-        }
+            IgnoreInaccessible = true,
+            RecurseSubdirectories = false,
+            ReturnSpecialDirectories = false
+        };
 
-        DirectoryInfo[] subdirectories;
-        try { subdirectories = root.GetDirectories(); }
-        catch (Exception exception)
-        {
-            Trace.TraceWarning(exception.Message);
-            return result;
-        }
-
-        foreach (DirectoryInfo directory in subdirectories)
+        while (directoriesToScan.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (ShouldSkipDirectory(directory.Name) ||
-                (directory.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
-                continue;
+            DirectoryInfo directory = directoriesToScan.Pop();
 
-            List<FileInfo>? nestedFiles = Scan(directory, cancellationToken);
-            if (nestedFiles != null) result.AddRange(nestedFiles);
+            try
+            {
+                foreach (FileInfo file in directory.EnumerateFiles("*", enumerationOptions))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (ShouldSkipFile(file))
+                        continue;
+
+                    result.Add(file);
+                    Trace.WriteLine(file.FullName);
+                }
+
+                foreach (DirectoryInfo subdirectory in directory.EnumerateDirectories("*", enumerationOptions))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (ShouldSkipDirectory(subdirectory.Name) ||
+                        (subdirectory.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                        continue;
+
+                    directoriesToScan.Push(subdirectory);
+                }
+            }
+            catch (Exception exception) when (exception is UnauthorizedAccessException ||
+                                               exception is DirectoryNotFoundException ||
+                                               exception is IOException)
+            {
+                Trace.TraceWarning($"Could not scan directory {directory.FullName}: {exception.Message}");
+            }
         }
 
         return result;

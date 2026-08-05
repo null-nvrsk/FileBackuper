@@ -58,7 +58,7 @@ internal class BackupApplication
         {
             cancellationToken.ThrowIfCancellationRequested();
             BackupLog.Info($"   {drive.Name}");
-            files.AddRange(FileScanner.Scan(drive.RootDirectory, cancellationToken) ?? Enumerable.Empty<FileInfo>());
+            files.AddRange(FileScanner.Scan(drive.RootDirectory, cancellationToken));
         }
 
         TimeSpan scanDuration = Stat.Stop();
