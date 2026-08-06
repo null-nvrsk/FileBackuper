@@ -28,18 +28,21 @@ internal class BackupApplication
 
             JobManifestStore manifestStore = new(stateDirectory);
             string instanceId = Guid.NewGuid().ToString("N");
+            bool canDeleteCompletedManifests;
             if (options.MonitorNewDrives)
             {
-                MonitorDrives(stateDirectory, destinationDirectory, manifestStore, instanceId,
+                canDeleteCompletedManifests = MonitorDrives(stateDirectory, destinationDirectory, manifestStore, instanceId,
                     options.DrivePollingIntervalSeconds, cancellationSource.Token);
             }
             else
             {
-                ProcessAvailableDrives(stateDirectory, destinationDirectory, manifestStore, instanceId,
+                (_, _, bool hasForeignWork) = ProcessAvailableDrives(stateDirectory, destinationDirectory, manifestStore, instanceId,
                     cancellationSource.Token);
+                canDeleteCompletedManifests = !hasForeignWork;
             }
 
-            manifestStore.DeleteCompleted();
+            if (canDeleteCompletedManifests)
+                manifestStore.DeleteCompleted();
         }
         catch (OperationCanceledException) when (cancellationSource.IsCancellationRequested)
         {
@@ -53,7 +56,7 @@ internal class BackupApplication
         }
     }
 
-    private static void MonitorDrives(string stateDirectory, string destinationDirectory,
+    private static bool MonitorDrives(string stateDirectory, string destinationDirectory,
         JobManifestStore manifestStore, string instanceId, int pollingIntervalSeconds,
         CancellationToken cancellationToken)
     {
@@ -62,13 +65,13 @@ internal class BackupApplication
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            (bool processedAnyDrive, bool hasActiveWork) = ProcessAvailableDrives(
+            (bool processedAnyDrive, bool hasRetryableWork, bool hasForeignWork) = ProcessAvailableDrives(
                 stateDirectory, destinationDirectory, manifestStore, instanceId, cancellationToken);
 
-            if (!processedAnyDrive && !hasActiveWork)
+            if (!processedAnyDrive && !hasRetryableWork)
             {
                 BackupLog.Info("Все доступные диски обработаны. Завершение работы.");
-                return;
+                return !hasForeignWork;
             }
 
             if (processedAnyDrive)
@@ -78,12 +81,13 @@ internal class BackupApplication
         }
     }
 
-    private static (bool ProcessedAnyDrive, bool HasActiveWork) ProcessAvailableDrives(
+    private static (bool ProcessedAnyDrive, bool HasRetryableWork, bool HasForeignWork) ProcessAvailableDrives(
         string stateDirectory, string destinationDirectory,
         JobManifestStore manifestStore, string instanceId, CancellationToken cancellationToken)
     {
         bool processedAnyDrive = false;
-        bool hasActiveWork = false;
+        bool hasRetryableWork = false;
+        bool hasForeignWork = false;
         List<DriveInfo> drives = FileScanner.GetDrivesToScan(destinationDirectory);
         foreach (DriveInfo drive in drives)
         {
@@ -102,7 +106,7 @@ internal class BackupApplication
                 using VolumeLease? lease = VolumeLease.TryAcquire(stateDirectory, volumeId);
                 if (lease is null)
                 {
-                    hasActiveWork = true;
+                    hasForeignWork = true;
                     BackupLog.Info($"Диск {drive.Name} уже обрабатывается другим процессом.");
                     continue;
                 }
@@ -132,12 +136,12 @@ internal class BackupApplication
             }
             catch (Exception exception)
             {
-                hasActiveWork = true;
+                hasRetryableWork = true;
                 BackupLog.Warning($"Не удалось обработать диск {drive.Name}: {exception.Message}");
             }
         }
 
-        return (processedAnyDrive, hasActiveWork);
+        return (processedAnyDrive, hasRetryableWork, hasForeignWork);
     }
 
     private static void ProcessDrive(DriveInfo drive, string destinationDirectory, JobManifestStore manifestStore,
