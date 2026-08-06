@@ -4,6 +4,9 @@ namespace FileBackuper.Core;
 
 public static class FilePriorityService
 {
+    public static IComparer<FileInfo> BackupPriorityComparer { get; } =
+        Comparer<FileInfo>.Create(CompareByBackupPriority);
+
     // TODO: добавить автоматические тесты для паттернов камеры и ожидаемого порядка файлов
     // при одинаковых и разных приоритетах.
     public static List<FileInfo> OrderByBackupPriority(IEnumerable<FileInfo> files, CancellationToken cancellationToken)
@@ -15,16 +18,37 @@ public static class FilePriorityService
             priorities.Add(file, CalculatePriority(file));
         }
 
-        List<FileInfo> orderedFiles = priorities.OrderByDescending(pair => pair.Value).Select(pair => pair.Key).ToList();
+        List<FileInfo> orderedFiles = priorities.Keys.OrderBy(file => file, BackupPriorityComparer).ToList();
         foreach (FileInfo file in orderedFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Stat.AddFileToTolalStat(file);
             Trace.WriteLine($"Key = {file}, size = {file.Length:N0}, Value = {priorities[file]}");
         }
 
         Trace.TraceInformation($"Sorted list size = {orderedFiles.Count:N0}");
         return orderedFiles;
+    }
+
+    public static int GetBackupPriority(FileInfo file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        return CalculatePriority(file);
+    }
+
+    /// <summary>Compares files in backup order: a negative result means <paramref name="first"/> goes first.</summary>
+    public static int CompareByBackupPriority(FileInfo? first, FileInfo? second)
+    {
+        if (ReferenceEquals(first, second))
+            return 0;
+        if (first is null)
+            return 1;
+        if (second is null)
+            return -1;
+
+        int priorityComparison = GetBackupPriority(second).CompareTo(GetBackupPriority(first));
+        return priorityComparison != 0
+            ? priorityComparison
+            : StringComparer.OrdinalIgnoreCase.Compare(first.FullName, second.FullName);
     }
 
     private static int CalculatePriority(FileInfo file)

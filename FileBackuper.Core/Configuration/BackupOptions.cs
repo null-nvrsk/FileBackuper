@@ -6,7 +6,7 @@ public sealed class BackupOptions
 
     public string StateDirectory { get; init; } = string.Empty;
 
-    public int DrivePollingIntervalSeconds { get; init; } = 10;
+    public int DrivePollingIntervalSeconds { get; init; } = 5;
 
     public bool MonitorNewDrives { get; init; } = true;
 
