@@ -183,6 +183,7 @@ public sealed class BackupJobManager : IDisposable
 
         try
         {
+            Stat.RegisterSourceDrive(drive.Name);
             manifestStore.Save(job.Manifest);
             return job;
         }

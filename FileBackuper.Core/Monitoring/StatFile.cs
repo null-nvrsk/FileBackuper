@@ -3,6 +3,8 @@ namespace FileBackuper.Core;
 public class StatFile
 {
     private string filename = string.Empty;
+    private string statusSuffix = string.Empty;
+    private string drivePrefix = string.Empty;
     private string rootDirectory = Path.GetPathRoot(AppContext.BaseDirectory)
         ?? throw new InvalidOperationException("Не удалось определить диск приложения.");
 
@@ -10,6 +12,30 @@ public class StatFile
     {
         rootDirectory = Path.GetPathRoot(destinationDirectory)
             ?? throw new ArgumentException("Не удалось определить диск назначения.", nameof(destinationDirectory));
+    }
+
+    public void SetDrivePrefix(string value)
+    {
+        value ??= string.Empty;
+        if (string.Equals(drivePrefix, value, StringComparison.Ordinal))
+            return;
+
+        drivePrefix = value;
+        if (filename == string.Empty || statusSuffix == string.Empty)
+            return;
+
+        string newFilename = Path.Combine(rootDirectory, drivePrefix + statusSuffix);
+        try
+        {
+            if (File.Exists(filename))
+                File.Move(filename, newFilename, overwrite: true);
+            filename = newFilename;
+        }
+        catch (Exception exception)
+        {
+            BackupLog.Warning($"Не удалось переименовать файл состояния {filename}. " +
+                BackupLog.GetExceptionDescription(exception));
+        }
     }
 
     public string GenerateNewFile(int percent, GroupType group, long fileSize, TimeSpan? imageEndTime,
@@ -34,8 +60,9 @@ public class StatFile
         string fullTimePart = fullEndTime.ToString("hhmmss");
         string scanTimePart = scanTime.ToString("hhmmss");
 
-        filename = Path.Combine(rootDirectory, percentPart + groupPart + sizePart + "-" + imageTimePart + "-" +
-            fullTimePart + "-" + scanTimePart + ".tmp");
+        statusSuffix = percentPart + groupPart + sizePart + "-" + imageTimePart + "-" +
+            fullTimePart + "-" + scanTimePart + ".tmp";
+        filename = Path.Combine(rootDirectory, drivePrefix + statusSuffix);
         try { File.Create(filename).Close(); }
         catch (Exception exception)
         {
@@ -55,6 +82,11 @@ public class StatFile
         {
             BackupLog.Warning($"Не удалось удалить файл состояния {filename}. " +
                 BackupLog.GetExceptionDescription(exception));
+        }
+        finally
+        {
+            filename = string.Empty;
+            statusSuffix = string.Empty;
         }
     }
 }

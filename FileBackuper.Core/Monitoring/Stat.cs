@@ -17,6 +17,7 @@ public static class Stat
     private static long totalVideoSize;
     private static long completeVideoSize;
     private static long currentFileSize;
+    private static readonly SortedSet<char> sourceDriveLetters = new();
     private static readonly StatFile statFile = new();
 
     public static void ConfigureStatusDirectory(string destinationDirectory)
@@ -44,6 +45,26 @@ public static class Stat
             totalVideoSize = 0;
             completeVideoSize = 0;
             currentFileSize = 0;
+            sourceDriveLetters.Clear();
+            statFile.SetDrivePrefix(string.Empty);
+        }
+    }
+
+    public static void RegisterSourceDrive(string driveName)
+    {
+        if (string.IsNullOrWhiteSpace(driveName))
+            throw new ArgumentException("Имя диска не может быть пустым.", nameof(driveName));
+
+        char driveLetter = char.ToLowerInvariant(driveName[0]);
+        if (!char.IsLetter(driveLetter))
+            throw new ArgumentException("Не удалось определить букву диска.", nameof(driveName));
+
+        lock (syncRoot)
+        {
+            if (!sourceDriveLetters.Add(driveLetter))
+                return;
+
+            statFile.SetDrivePrefix(new string(sourceDriveLetters.ToArray()) + "-");
         }
     }
 
