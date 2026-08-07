@@ -60,6 +60,18 @@ public sealed class BackupJob : IDisposable
             currentFile: file.FullName);
     }
 
+    public void MarkFileSkipped(FileInfo file, long fileSize)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        if (fileSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(fileSize));
+
+        Manifest = UpdateManifest(JobStatus.Copying,
+            filesFound: Math.Max(0, Manifest.FilesFound - 1),
+            totalBytes: Math.Max(0, Manifest.TotalBytes - fileSize),
+            currentFile: file.FullName);
+    }
+
     public void MarkCompleted() => Manifest = UpdateManifest(JobStatus.Completed);
 
     public void MarkCancelled() => Manifest = UpdateManifest(JobStatus.Cancelled);

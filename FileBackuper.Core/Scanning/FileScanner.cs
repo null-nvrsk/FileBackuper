@@ -14,7 +14,7 @@ public static class FileScanner
             DriveInfo drive = new(driveName);
             if (!drive.IsReady)
             {
-                Trace.TraceWarning("The drive {0} could not be read", drive.Name);
+                BackupLog.Warning($"Не удалось прочитать диск {drive.Name}");
                 continue;
             }
 
@@ -71,7 +71,8 @@ public static class FileScanner
                                                exception is DirectoryNotFoundException ||
                                                exception is IOException)
             {
-                Trace.TraceWarning($"Could not scan directory {directory.FullName}: {exception.Message}");
+                BackupLog.Warning($"Не удалось просканировать каталог {directory.FullName}. " +
+                    BackupLog.GetExceptionDescription(exception));
             }
         }
 
@@ -96,7 +97,7 @@ public static class FileScanner
         if (!MediaFileClassifier.IsImage(file) && !MediaFileClassifier.IsVideo(file)) return true;
         if (file.Length < 10_000 || file.Length > 4_000_000_000)
         {
-            Trace.WriteLine($"Skip file by size ({file.Length}) - {file.Name}");
+            Trace.WriteLine($"Файл пропущен из-за размера ({file.Length:N0} байтов): {file.Name}");
             return true;
         }
 
@@ -107,7 +108,7 @@ public static class FileScanner
             name.Contains("720i") || name.Contains("720p") || name.Contains("1080i") || name.Contains("1080p");
         if (MediaFileClassifier.IsVideo(file) && isFilm)
         {
-            Trace.WriteLine($"Skip file by film name - {file.Name}");
+            Trace.WriteLine($"Видеофайл пропущен по признакам фильма: {file.Name}");
             return true;
         }
 

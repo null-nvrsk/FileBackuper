@@ -9,6 +9,7 @@ public static class Stat
     private static TimeSpan totalEta;
     private static DateTime lastRecalculatedAt;
     private static int totalCount;
+    private static int completeCount;
     private static long totalSize;
     private static long completeSize;
     private static long totalImageSize;
@@ -35,6 +36,7 @@ public static class Stat
             totalEta = default;
             lastRecalculatedAt = default;
             totalCount = 0;
+            completeCount = 0;
             totalSize = 0;
             completeSize = 0;
             totalImageSize = 0;
@@ -122,9 +124,27 @@ public static class Stat
         lock (syncRoot)
         {
             currentFileSize = file.Length;
+            completeCount++;
             completeSize += file.Length;
             if (MediaFileClassifier.IsImage(file)) completeImageSize += file.Length;
             if (MediaFileClassifier.IsVideo(file)) completeVideoSize += file.Length;
+        }
+    }
+
+    public static void RemoveFileFromTotalStat(FileInfo file, long fileSize)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        if (fileSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(fileSize));
+
+        lock (syncRoot)
+        {
+            totalCount = Math.Max(0, totalCount - 1);
+            totalSize = Math.Max(0, totalSize - fileSize);
+            if (MediaFileClassifier.IsImage(file))
+                totalImageSize = Math.Max(0, totalImageSize - fileSize);
+            if (MediaFileClassifier.IsVideo(file))
+                totalVideoSize = Math.Max(0, totalVideoSize - fileSize);
         }
     }
 
@@ -147,6 +167,15 @@ public static class Stat
         }
     }
 
+    public static StatSnapshot GetSnapshot()
+    {
+        lock (syncRoot)
+        {
+            int percentage = totalSize > 0 ? (int)((double)completeSize / totalSize * 100) : 0;
+            return new StatSnapshot(totalCount, totalSize, completeCount, completeSize, percentage);
+        }
+    }
+
     private static void AddFileToTotalStatCore(FileInfo file)
     {
         totalCount++;
@@ -155,3 +184,10 @@ public static class Stat
         if (MediaFileClassifier.IsVideo(file)) totalVideoSize += file.Length;
     }
 }
+
+public sealed record StatSnapshot(
+    int TotalFileCount,
+    long TotalSize,
+    int CompletedFileCount,
+    long CompletedSize,
+    int Percentage);

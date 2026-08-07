@@ -22,10 +22,10 @@ public static class FilePriorityService
         foreach (FileInfo file in orderedFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Trace.WriteLine($"Key = {file}, size = {file.Length:N0}, Value = {priorities[file]}");
+            Trace.WriteLine($"Файл = {file}, размер = {file.Length:N0}, приоритет = {priorities[file]}");
         }
 
-        Trace.TraceInformation($"Sorted list size = {orderedFiles.Count:N0}");
+        BackupLog.Info($"Размер отсортированного списка: {orderedFiles.Count:N0}");
         return orderedFiles;
     }
 

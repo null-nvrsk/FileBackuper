@@ -6,9 +6,18 @@ namespace FileBackuper.Core;
 /// </summary>
 public sealed class CopyScheduler
 {
+    private static readonly string ProgressSeparator = new('-', 130);
     private readonly object syncRoot = new();
     private readonly List<JobQueue> queues = new();
     private readonly JobManifestStore manifestStore;
+    private readonly System.Diagnostics.Stopwatch copyStopwatch = new();
+    private bool copyingStarted;
+    private int copiedFileCount;
+    private long progressIntervalCopiedBytes;
+    private TimeSpan progressIntervalCopyDuration;
+    private long totalCopiedBytes;
+    private TimeSpan totalCopyDuration;
+    private bool finalStatisticsLogged;
 
     public CopyScheduler(JobManifestStore manifestStore)
     {
@@ -67,14 +76,46 @@ public sealed class CopyScheduler
             return false;
 
         cancellationToken.ThrowIfCancellationRequested();
+        if (!copyingStarted)
+        {
+            copyingStarted = true;
+            copyStopwatch.Start();
+            BackupLog.Info("Начало копирования");
+            BackupLog.Flush();
+        }
+
         try
         {
+            if (!File.Exists(scheduledFile.File.FullName))
+            {
+                Skip(scheduledFile, "исходный файл недоступен или удалён");
+                await Task.Yield();
+                return true;
+            }
+
+            System.Diagnostics.Stopwatch fileCopyStopwatch = System.Diagnostics.Stopwatch.StartNew();
             bool alreadyExists = FileCopier.CopyFile(scheduledFile.File, destinationDirectory, cancellationToken);
+            fileCopyStopwatch.Stop();
+            if (alreadyExists)
+            {
+                Skip(scheduledFile, "актуальный файл уже существует");
+                await Task.Yield();
+                return true;
+            }
+
             Stat.AddFileToCompletedStat(scheduledFile.File);
             Stat.RecalculateEstimatedTime();
             Complete(scheduledFile);
-            BackupLog.Info($"Copy file = {scheduledFile.File.FullName} - " +
-                (alreadyExists ? "file already exists, skipped" : $"size {scheduledFile.File.Length:N0}"));
+            copiedFileCount++;
+            progressIntervalCopiedBytes += scheduledFile.Length;
+            progressIntervalCopyDuration += fileCopyStopwatch.Elapsed;
+            totalCopiedBytes += scheduledFile.Length;
+            totalCopyDuration += fileCopyStopwatch.Elapsed;
+            BackupLog.Raw($"({copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}) Скопирован файл №{copiedFileCount:N0} = " +
+                $"{scheduledFile.File.FullName} — размер {FormatSize(scheduledFile.Length)}");
+
+            if (copiedFileCount % 50 == 0)
+                LogProgress();
         }
         catch (OperationCanceledException)
         {
@@ -84,6 +125,14 @@ public sealed class CopyScheduler
         }
         catch (Exception exception)
         {
+            if (!CanReadSourceFile(scheduledFile.File))
+            {
+                Skip(scheduledFile, "исходный файл недоступен: " +
+                    BackupLog.GetExceptionDescription(exception));
+                await Task.Yield();
+                return true;
+            }
+
             scheduledFile.Job.MarkFailed(exception.Message);
             manifestStore.Save(scheduledFile.Job.Manifest);
             RemoveQueue(scheduledFile.Job);
@@ -93,13 +142,35 @@ public sealed class CopyScheduler
         return true;
     }
 
+    public void LogFinalStatistics()
+    {
+        if (finalStatisticsLogged || !copyingStarted)
+            return;
+
+        finalStatisticsLogged = true;
+        copyStopwatch.Stop();
+        double seconds = totalCopyDuration.TotalSeconds;
+        double megabytesPerSecond = seconds > 0
+            ? totalCopiedBytes / 1024d / 1024d / seconds
+            : 0;
+        double gigabytesPerMinute = seconds > 0
+            ? totalCopiedBytes / 1024d / 1024d / 1024d / seconds * 60
+            : 0;
+
+        BackupLog.Raw($"[{Stat.GetCurrentScanTimeAsString()}] Время копирования: " +
+            $"{copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
+        BackupLog.Raw($"[{Stat.GetCurrentScanTimeAsString()}] Скорость: {megabytesPerSecond:N2} МБ/с");
+        BackupLog.Raw($"[{Stat.GetCurrentScanTimeAsString()}]           {gigabytesPerMinute:N2} ГБ/мин");
+        BackupLog.Flush();
+    }
+
     public bool TryTakeNext(out ScheduledFile scheduledFile)
     {
         lock (syncRoot)
         {
             JobQueue? selectedQueue = queues
                 .Where(queue => queue.Files.Count > 0)
-                .OrderBy(queue => queue.Files.Peek(), FilePriorityService.BackupPriorityComparer)
+                .OrderBy(queue => queue.Files.Peek().File, FilePriorityService.BackupPriorityComparer)
                 .FirstOrDefault();
 
             if (selectedQueue is null)
@@ -108,7 +179,8 @@ public sealed class CopyScheduler
                 return false;
             }
 
-            scheduledFile = new ScheduledFile(selectedQueue.Job, selectedQueue.Files.Dequeue());
+            QueuedFile queuedFile = selectedQueue.Files.Dequeue();
+            scheduledFile = new ScheduledFile(selectedQueue.Job, queuedFile.File, queuedFile.Length);
             return true;
         }
     }
@@ -126,10 +198,75 @@ public sealed class CopyScheduler
         manifestStore.Save(scheduledFile.Job.Manifest);
     }
 
+    private void Skip(ScheduledFile scheduledFile, string reason)
+    {
+        Stat.RemoveFileFromTotalStat(scheduledFile.File, scheduledFile.Length);
+        scheduledFile.Job.MarkFileSkipped(scheduledFile.File, scheduledFile.Length);
+        lock (syncRoot)
+        {
+            JobQueue queue = queues.Single(item => item.Job == scheduledFile.Job);
+            if (queue.Files.Count == 0)
+                scheduledFile.Job.MarkCompleted();
+        }
+
+        manifestStore.Save(scheduledFile.Job.Manifest);
+        BackupLog.Raw($"({copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}) Файл пропущен = " +
+            $"{scheduledFile.File.FullName} — {reason}");
+    }
+
     private void RemoveQueue(BackupJob job)
     {
         lock (syncRoot)
             queues.RemoveAll(queue => queue.Job == job);
+    }
+
+    private void LogProgress()
+    {
+        StatSnapshot snapshot = Stat.GetSnapshot();
+        double seconds = progressIntervalCopyDuration.TotalSeconds;
+        double megabytesPerSecond = seconds > 0
+            ? progressIntervalCopiedBytes / 1024d / 1024d / seconds
+            : 0;
+        double gigabytesPerMinute = seconds > 0
+            ? progressIntervalCopiedBytes / 1024d / 1024d / 1024d / seconds * 60
+            : 0;
+        BackupLog.Raw(ProgressSeparator);
+        BackupLog.Raw($"[{Stat.GetCurrentScanTimeAsString()}]({copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}) " +
+            $"{snapshot.Percentage}% [Скопировано {FormatSize(snapshot.CompletedSize)} из {FormatSize(snapshot.TotalSize)}]" +
+            $"[Скопировано файлов: {snapshot.CompletedFileCount:N0} из {snapshot.TotalFileCount:N0}] " +
+            $"[Скорость: {megabytesPerSecond:N2} МБ/с | {gigabytesPerMinute:N2} ГБ/мин]");
+        BackupLog.Raw(ProgressSeparator);
+        BackupLog.Flush();
+        progressIntervalCopiedBytes = 0;
+        progressIntervalCopyDuration = TimeSpan.Zero;
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        double size = bytes;
+        string[] units = { "байт", "КБ", "МБ", "ГБ", "ТБ" };
+        int unitIndex = 0;
+        while (size >= 1024 && unitIndex < units.Length - 1)
+        {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        return $"{size:N2} {units[unitIndex]}";
+    }
+
+    private static bool CanReadSourceFile(FileInfo file)
+    {
+        try
+        {
+            using FileStream stream = new(file.FullName, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private sealed class JobQueue
@@ -137,13 +274,15 @@ public sealed class CopyScheduler
         public JobQueue(BackupJob job)
         {
             Job = job;
-            Files = new Queue<FileInfo>(job.Files);
+            Files = new Queue<QueuedFile>(job.Files.Select(file => new QueuedFile(file, file.Length)));
         }
 
         public BackupJob Job { get; }
 
-        public Queue<FileInfo> Files { get; }
+        public Queue<QueuedFile> Files { get; }
     }
+
+    private sealed record QueuedFile(FileInfo File, long Length);
 }
 
-public sealed record ScheduledFile(BackupJob Job, FileInfo File);
+public sealed record ScheduledFile(BackupJob Job, FileInfo File, long Length);

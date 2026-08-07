@@ -76,6 +76,39 @@ public class CopySchedulerTests
         Assert.Same(newJob, scheduledFile.Job);
     }
 
+    [Fact]
+    public async Task ExistingTarget_IsRemovedFromTotalAndNotCountedAsCopied()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo sourceFile = workspace.CreateFile("existing.jpg", 20_000);
+        string destination = Path.Combine(workspace.RootDirectory.FullName, "destination");
+        Assert.False(FileCopier.CopyFile(sourceFile, destination, CancellationToken.None));
+        using VolumeLease lease = Assert.IsType<VolumeLease>(
+            VolumeLease.TryAcquire(workspace.RootDirectory.FullName, "existing-volume"));
+        BackupJob job = CreateCopyingJob(new DriveInfo(workspace.RootDirectory.Root.FullName), lease,
+            "existing-volume", sourceFile);
+        JobManifestStore store = new(workspace.RootDirectory.FullName);
+        CopyScheduler scheduler = new(store);
+        Stat.Reset();
+        Stat.AddFilesToTotalStat(new[] { sourceFile });
+        scheduler.Enqueue(job);
+
+        Assert.True(await scheduler.CopyNextAsync(destination, CancellationToken.None));
+
+        StatSnapshot snapshot = Stat.GetSnapshot();
+        Assert.Equal(0, snapshot.TotalFileCount);
+        Assert.Equal(0, snapshot.TotalSize);
+        Assert.Equal(0, snapshot.CompletedFileCount);
+        Assert.Equal(0, snapshot.CompletedSize);
+        JobManifest manifest = Assert.IsType<JobManifest>(store.Read("existing-volume"));
+        Assert.Equal(JobStatus.Completed, manifest.Status);
+        Assert.Equal(0, manifest.FilesFound);
+        Assert.Equal(0, manifest.TotalBytes);
+        Assert.Equal(0, manifest.FilesCompleted);
+        Assert.Equal(0, manifest.CompletedBytes);
+        Stat.Reset();
+    }
+
     private static BackupJob CreateCopyingJob(DriveInfo drive, VolumeLease lease, string volumeId, FileInfo file)
     {
         BackupJob job = new(drive, lease, new JobManifest { VolumeId = volumeId, Status = JobStatus.Scanning });

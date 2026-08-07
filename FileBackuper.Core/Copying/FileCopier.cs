@@ -1,13 +1,11 @@
-using System.Diagnostics;
-
 namespace FileBackuper.Core;
 
 public static class FileCopier
 {
     public static void CreateDestinationDirectory(string destinationDirectory)
     {
-        Trace.TraceInformation($"Machine name: {Environment.MachineName}");
-        Trace.TraceInformation($"Destination directory: {destinationDirectory}");
+        BackupLog.Info($"Имя компьютера: {Environment.MachineName}");
+        BackupLog.Info($"Каталог назначения: {destinationDirectory}");
         Directory.CreateDirectory(destinationDirectory);
     }
 
@@ -16,7 +14,7 @@ public static class FileCopier
     {
         ArgumentNullException.ThrowIfNull(sourceFile);
         if (string.IsNullOrWhiteSpace(destinationDirectory))
-            throw new ArgumentException("The destination directory cannot be empty.", nameof(destinationDirectory));
+            throw new ArgumentException("Каталог назначения не может быть пустым.", nameof(destinationDirectory));
         cancellationToken.ThrowIfCancellationRequested();
 
         string targetDirectory = destinationDirectory + "\\" + sourceFile.DirectoryName?.Replace(":", "");

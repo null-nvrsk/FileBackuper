@@ -14,10 +14,19 @@ public class StatTests
         Stat.AddFileToCompletedStat(firstFile);
 
         Assert.Equal(33, Stat.GetPercentageOfCompletion());
+        StatSnapshot partialSnapshot = Stat.GetSnapshot();
+        Assert.Equal(2, partialSnapshot.TotalFileCount);
+        Assert.Equal(30, partialSnapshot.TotalSize);
+        Assert.Equal(1, partialSnapshot.CompletedFileCount);
+        Assert.Equal(10, partialSnapshot.CompletedSize);
+        Assert.Equal(33, partialSnapshot.Percentage);
 
-        Stat.AddFileToCompletedStat(secondFile);
+        Stat.RemoveFileFromTotalStat(secondFile, secondFile.Length);
+        StatSnapshot reducedSnapshot = Stat.GetSnapshot();
+        Assert.Equal(1, reducedSnapshot.TotalFileCount);
+        Assert.Equal(10, reducedSnapshot.TotalSize);
+        Assert.Equal(100, reducedSnapshot.Percentage);
 
-        Assert.Equal(100, Stat.GetPercentageOfCompletion());
         Stat.Reset();
     }
 }

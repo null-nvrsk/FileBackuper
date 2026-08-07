@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace FileBackuper.Core;
 
@@ -106,7 +107,12 @@ public sealed class BackupJobManager : IDisposable
 
         BackupJobBatch batch = new(startedJobs);
         batch.CollectScannedFiles();
+        Stopwatch sortingStopwatch = Stopwatch.StartNew();
+        BackupLog.Info($"Начало сортировки общей очереди: {batch.Files.Count:N0} файлов.");
         List<FileInfo> sortedFiles = orderFiles(batch.Files, cancellationToken);
+        sortingStopwatch.Stop();
+        BackupLog.Info($"Конец сортировки. Время сортировки: " +
+            $"{sortingStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
         batch.SetSortedFiles(sortedFiles);
         foreach (BackupJob job in batch.Jobs)
             manifestStore.Save(job.Manifest);
@@ -196,12 +202,13 @@ public sealed class BackupJobManager : IDisposable
 
         try
         {
-            List<FileInfo> scannedFiles = scanFiles(job.SourceDrive.RootDirectory, token);
-            Stat.AddFilesToTotalStat(scannedFiles);
-            job.SetScannedFiles(scannedFiles);
-            manifestStore.Save(job.Manifest);
-
+            List<FileInfo> scannedFiles = ScanAndRecord(job, token);
+            Stopwatch sortingStopwatch = Stopwatch.StartNew();
+            BackupLog.Info($"Начало сортировки файлов диска {job.SourceDrive.Name}");
             List<FileInfo> sortedFiles = orderFiles(scannedFiles, token);
+            sortingStopwatch.Stop();
+            BackupLog.Info($"Сортировка файлов диска {job.SourceDrive.Name} завершена. Время сортировки: " +
+                $"{sortingStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
             job.SetSortedFiles(sortedFiles);
             manifestStore.Save(job.Manifest);
         }
@@ -225,10 +232,7 @@ public sealed class BackupJobManager : IDisposable
 
         try
         {
-            List<FileInfo> scannedFiles = scanFiles(job.SourceDrive.RootDirectory, token);
-            Stat.AddFilesToTotalStat(scannedFiles);
-            job.SetScannedFiles(scannedFiles);
-            manifestStore.Save(job.Manifest);
+            ScanAndRecord(job, token);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -240,6 +244,25 @@ public sealed class BackupJobManager : IDisposable
             job.MarkFailed(exception.Message);
             manifestStore.Save(job.Manifest);
         }
+    }
+
+    private List<FileInfo> ScanAndRecord(BackupJob job, CancellationToken cancellationToken)
+    {
+        Stopwatch scanningStopwatch = Stopwatch.StartNew();
+        BackupLog.Info($"Начало сканирования диска {job.SourceDrive.Name}");
+        List<FileInfo> scannedFiles = scanFiles(job.SourceDrive.RootDirectory, cancellationToken);
+        scanningStopwatch.Stop();
+
+        Stat.AddFilesToTotalStat(scannedFiles);
+        job.SetScannedFiles(scannedFiles);
+        manifestStore.Save(job.Manifest);
+
+        BackupLog.Info($"Сканирование диска {job.SourceDrive.Name} завершено.");
+        BackupLog.Info($"Время сканирования: {scanningStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
+        BackupLog.Info($"Найдено файлов: {scannedFiles.Count:N0}");
+        BackupLog.Info($"Общий размер файлов: {scannedFiles.Sum(file => file.Length):N0} байтов");
+        BackupLog.Flush();
+        return scannedFiles;
     }
 
     private JobManifest CreateManifest(string volumeId, string driveLetter)

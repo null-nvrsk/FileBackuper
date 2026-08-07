@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace FileBackuper.Core;
 
 public class StatFile
@@ -20,7 +18,11 @@ public class StatFile
         if (filename != string.Empty)
         {
             try { File.Delete(filename); }
-            catch (Exception exception) { Trace.TraceWarning(exception.Message); }
+            catch (Exception exception)
+            {
+                BackupLog.Warning($"Не удалось удалить файл состояния {filename}. " +
+                    BackupLog.GetExceptionDescription(exception));
+            }
         }
 
         string percentPart = percent.ToString("00");
@@ -35,7 +37,11 @@ public class StatFile
         filename = Path.Combine(rootDirectory, percentPart + groupPart + sizePart + "-" + imageTimePart + "-" +
             fullTimePart + "-" + scanTimePart + ".tmp");
         try { File.Create(filename).Close(); }
-        catch (Exception exception) { Trace.TraceWarning(exception.Message); }
+        catch (Exception exception)
+        {
+            BackupLog.Warning($"Не удалось создать файл состояния {filename}. " +
+                BackupLog.GetExceptionDescription(exception));
+        }
 
         Console.WriteLine(filename);
         return filename;
@@ -45,6 +51,10 @@ public class StatFile
     {
         if (filename == string.Empty) return;
         try { File.Delete(filename); }
-        catch (Exception exception) { Trace.TraceWarning(exception.Message); }
+        catch (Exception exception)
+        {
+            BackupLog.Warning($"Не удалось удалить файл состояния {filename}. " +
+                BackupLog.GetExceptionDescription(exception));
+        }
     }
 }

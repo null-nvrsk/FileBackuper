@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -48,7 +47,8 @@ public static class MediaFileClassifier
         }
         catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
         {
-            Trace.TraceInformation($"Error reading file {filePath}: {exception.Message}");
+            BackupLog.Warning($"Не удалось прочитать файл {filePath}. " +
+                BackupLog.GetExceptionDescription(exception));
             return false;
         }
     }
@@ -66,7 +66,8 @@ public static class MediaFileClassifier
         }
         catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
         {
-            Trace.TraceInformation($"Error reading file {filePath}: {exception.Message}");
+            BackupLog.Warning($"Не удалось прочитать файл {filePath}. " +
+                BackupLog.GetExceptionDescription(exception));
             return false;
         }
     }
