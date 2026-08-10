@@ -16,6 +16,19 @@ public class FileScannerTests
     }
 
     [Fact]
+    public void ScanWithStatistics_ReturnsCloudSkipCountSeparately()
+    {
+        using TestWorkspace workspace = new();
+        workspace.CreateFile("photo.jpg", 10_000);
+        CloudFileState.Configure(CloudFileMode.FastSkip);
+
+        FileScanResult result = FileScanner.ScanWithStatistics(workspace.RootDirectory, CancellationToken.None);
+
+        Assert.Single(result.Files);
+        Assert.Equal(0, result.CloudFilesSkipped);
+    }
+
+    [Fact]
     public void ShouldSkipFile_ReturnsTrueForFileSmallerThanMinimumSize()
     {
         using TestWorkspace workspace = new();

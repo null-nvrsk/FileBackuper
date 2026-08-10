@@ -15,4 +15,5 @@ public sealed class BackupOptions
     public long MinFileSizeBytes { get; init; } = 10_000;
     public long MaxFileSizeBytes { get; init; } = 4_000_000_000;
     public bool IncludeBrowserCaches { get; init; } = false;
+    public CloudFileMode CloudFileMode { get; init; } = CloudFileMode.FastSkip;
 }

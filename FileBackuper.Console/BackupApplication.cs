@@ -22,6 +22,7 @@ internal class BackupApplication
         {
             string destinationDirectory = BackupPaths.ResolveDestinationDirectory(options.DestinationDirectory);
             BackupOptionsValidator.Validate(options, destinationDirectory);
+            CloudFileState.Configure(options.CloudFileMode);
             FileCopier.CreateDestinationDirectory(destinationDirectory);
             Stat.ConfigureStatusDirectory(destinationDirectory);
             LoggingConfiguration.Configure(destinationDirectory);

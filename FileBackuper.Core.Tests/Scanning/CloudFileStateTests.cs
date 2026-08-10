@@ -5,6 +5,16 @@ namespace FileBackuper.Core.Tests.Scanning;
 public class CloudFileStateTests
 {
     [Fact]
+    public void FastSkip_ReturnsTrueForOrdinaryLocalFile()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo file = workspace.CreateFile("photo.jpg", 10_000);
+        CloudFileState.Configure(CloudFileMode.FastSkip);
+
+        Assert.True(CloudFileState.IsContentAvailableLocally(file));
+    }
+
+    [Fact]
     public void IsContentAvailableLocally_ReturnsTrueForOrdinaryFile()
     {
         Assert.True(CloudFileState.IsContentAvailableLocally(0));

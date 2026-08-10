@@ -28,8 +28,12 @@ public static class FileScanner
     }
 
     public static List<FileInfo> Scan(DirectoryInfo root, CancellationToken cancellationToken)
+        => ScanWithStatistics(root, cancellationToken).Files;
+
+    public static FileScanResult ScanWithStatistics(DirectoryInfo root, CancellationToken cancellationToken)
     {
         List<FileInfo> result = new();
+        int cloudFilesSkipped = 0;
         Stack<DirectoryInfo> directoriesToScan = new();
         directoriesToScan.Push(root);
 
@@ -50,13 +54,14 @@ public static class FileScanner
                 foreach (FileInfo file in directory.EnumerateFiles("*", enumerationOptions))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (ShouldSkipFile(file))
+                    if (!MediaFileClassifier.IsImage(file) && !MediaFileClassifier.IsVideo(file))
                         continue;
 
                     try
                     {
                         if (!CloudFileState.IsContentAvailableLocally(file))
                         {
+                            cloudFilesSkipped++;
                             BackupLog.Verbose($"Облачный файл пропущен без скачивания: {file.FullName}");
                             continue;
                         }
@@ -64,11 +69,15 @@ public static class FileScanner
                     catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
                                                        System.ComponentModel.Win32Exception)
                     {
+                        cloudFilesSkipped++;
                         BackupLog.Warning($"Не удалось определить локальную доступность файла {file.FullName}. " +
                             "Файл пропущен, чтобы не запустить его скачивание. " +
                             BackupLog.GetExceptionDescription(exception));
                         continue;
                     }
+
+                    if (ShouldSkipFile(file))
+                        continue;
 
                     result.Add(file);
                     Trace.WriteLine(file.FullName);
@@ -92,7 +101,7 @@ public static class FileScanner
             }
         }
 
-        return result;
+        return new FileScanResult(result, cloudFilesSkipped);
     }
 
     public static bool ShouldSkipDirectory(string directoryName) => directoryName switch

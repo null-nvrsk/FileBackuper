@@ -24,10 +24,36 @@ public static class CloudFileState
     private const int PlaceholderStandardInfo = 1;
     private const uint PinStatePinned = 1;
     private const int ErrorMoreDataHResult = unchecked((int)0x800700EA);
+    private const uint ClearlyUnavailableAttributeMask =
+        (uint)FileAttributes.Offline |
+        0x00040000 | // FILE_ATTRIBUTE_RECALL_ON_OPEN
+        0x00100000 | // FILE_ATTRIBUTE_UNPINNED
+        0x00400000;  // FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS
+    private const uint PinnedAttribute = 0x00080000;
+    private static CloudFileMode mode = CloudFileMode.FastSkip;
+
+    public static void Configure(CloudFileMode value)
+    {
+        if (!Enum.IsDefined(typeof(CloudFileMode), value))
+            throw new ArgumentOutOfRangeException(nameof(value));
+        mode = value;
+    }
 
     public static bool IsContentAvailableLocally(FileInfo file)
     {
         ArgumentNullException.ThrowIfNull(file);
+
+        FileAttributes attributes = file.Attributes;
+        uint rawAttributes = (uint)attributes;
+        if ((rawAttributes & ClearlyUnavailableAttributeMask) != 0)
+            return false;
+
+        bool isReparsePoint = (attributes & FileAttributes.ReparsePoint) != 0;
+        if (!isReparsePoint)
+            return true;
+
+        if (mode == CloudFileMode.FastSkip)
+            return (rawAttributes & PinnedAttribute) != 0;
 
         // Reading attributes through an OPEN_REPARSE_POINT handle does not read
         // placeholder content and therefore does not trigger cloud hydration.

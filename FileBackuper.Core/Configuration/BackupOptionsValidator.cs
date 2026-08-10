@@ -4,6 +4,9 @@ public static class BackupOptionsValidator
 {
     public static void Validate(BackupOptions options, string destinationDirectory)
     {
+        if (!Enum.IsDefined(typeof(CloudFileMode), options.CloudFileMode))
+            throw new InvalidOperationException("Указан неизвестный режим обработки облачных файлов.");
+
         if (options.DrivePollingIntervalSeconds <= 0)
         {
             throw new InvalidOperationException(

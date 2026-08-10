@@ -13,7 +13,7 @@ public sealed class BackupJobManager : IDisposable
     private readonly string destinationDirectory;
     private readonly JobManifestStore manifestStore;
     private readonly string instanceId;
-    private readonly Func<DirectoryInfo, CancellationToken, List<FileInfo>> scanFiles;
+    private readonly Func<DirectoryInfo, CancellationToken, FileScanResult> scanFiles;
     private readonly Func<IEnumerable<FileInfo>, CancellationToken, List<FileInfo>> orderFiles;
     private readonly ConcurrentDictionary<string, ManagedJob> jobs = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource stopSource = new();
@@ -21,7 +21,7 @@ public sealed class BackupJobManager : IDisposable
 
     public BackupJobManager(string stateDirectory, string destinationDirectory, JobManifestStore manifestStore,
         string instanceId,
-        Func<DirectoryInfo, CancellationToken, List<FileInfo>>? scanFiles = null,
+        Func<DirectoryInfo, CancellationToken, FileScanResult>? scanFiles = null,
         Func<IEnumerable<FileInfo>, CancellationToken, List<FileInfo>>? orderFiles = null)
     {
         if (string.IsNullOrWhiteSpace(stateDirectory))
@@ -36,7 +36,7 @@ public sealed class BackupJobManager : IDisposable
         this.destinationDirectory = Path.GetFullPath(destinationDirectory);
         this.manifestStore = manifestStore;
         this.instanceId = instanceId;
-        this.scanFiles = scanFiles ?? FileScanner.Scan;
+        this.scanFiles = scanFiles ?? FileScanner.ScanWithStatistics;
         this.orderFiles = orderFiles ?? FilePriorityService.OrderByBackupPriority;
     }
 
@@ -248,7 +248,8 @@ public sealed class BackupJobManager : IDisposable
     {
         Stopwatch scanningStopwatch = Stopwatch.StartNew();
         BackupLog.Info($"Начало сканирования диска {job.SourceDrive.Name}");
-        List<FileInfo> scannedFiles = scanFiles(job.SourceDrive.RootDirectory, cancellationToken);
+        FileScanResult scanResult = scanFiles(job.SourceDrive.RootDirectory, cancellationToken);
+        List<FileInfo> scannedFiles = scanResult.Files;
         scanningStopwatch.Stop();
 
         Stat.AddFilesToTotalStat(scannedFiles);
@@ -259,6 +260,7 @@ public sealed class BackupJobManager : IDisposable
         BackupLog.Info($"Время сканирования: {scanningStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
         BackupLog.Info($"Найдено файлов: {scannedFiles.Count:N0}");
         BackupLog.Info($"Общий размер файлов: {scannedFiles.Sum(file => file.Length):N0} байтов");
+        BackupLog.Info($"Пропущено облачных файлов: {scanResult.CloudFilesSkipped:N0}");
         BackupLog.Flush();
         return scannedFiles;
     }
