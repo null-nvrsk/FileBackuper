@@ -86,6 +86,24 @@ public sealed class CopyScheduler
 
         try
         {
+            try
+            {
+                if (!CloudFileState.IsContentAvailableLocally(scheduledFile.File))
+                {
+                    Skip(scheduledFile, "исходный файл находится только в облаке");
+                    await Task.Yield();
+                    return true;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
+                                               System.ComponentModel.Win32Exception)
+            {
+                Skip(scheduledFile, "не удалось безопасно подтвердить локальную доступность исходного файла: " +
+                    BackupLog.GetExceptionDescription(exception));
+                await Task.Yield();
+                return true;
+            }
+
             if (!File.Exists(scheduledFile.File.FullName))
             {
                 Skip(scheduledFile, "исходный файл недоступен или удалён");

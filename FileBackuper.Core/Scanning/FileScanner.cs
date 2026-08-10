@@ -53,6 +53,23 @@ public static class FileScanner
                     if (ShouldSkipFile(file))
                         continue;
 
+                    try
+                    {
+                        if (!CloudFileState.IsContentAvailableLocally(file))
+                        {
+                            Trace.WriteLine($"Cloud-only file skipped without downloading: {file.FullName}");
+                            continue;
+                        }
+                    }
+                    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
+                                                       System.ComponentModel.Win32Exception)
+                    {
+                        BackupLog.Warning($"Не удалось определить локальную доступность файла {file.FullName}. " +
+                            "Файл пропущен, чтобы не запустить его скачивание. " +
+                            BackupLog.GetExceptionDescription(exception));
+                        continue;
+                    }
+
                     result.Add(file);
                     Trace.WriteLine(file.FullName);
                 }
@@ -60,8 +77,7 @@ public static class FileScanner
                 foreach (DirectoryInfo subdirectory in directory.EnumerateDirectories("*", enumerationOptions))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (ShouldSkipDirectory(subdirectory.Name) ||
-                        (subdirectory.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                    if (ShouldSkipDirectory(subdirectory.Name) || IsFileSystemLink(subdirectory))
                         continue;
 
                     directoriesToScan.Push(subdirectory);
@@ -90,6 +106,17 @@ public static class FileScanner
 #endif
         _ => false
     };
+
+    private static bool IsFileSystemLink(DirectoryInfo directory)
+    {
+        if ((directory.Attributes & FileAttributes.ReparsePoint) == 0)
+            return false;
+
+        // Cloud Files providers (including Yandex Disk 4) also mark placeholder
+        // directories as reparse points. Unlike symbolic links and junctions,
+        // they do not have a link target and must be traversed normally.
+        return directory.LinkTarget is not null;
+    }
 
     public static bool ShouldSkipFile(FileInfo file)
     {
