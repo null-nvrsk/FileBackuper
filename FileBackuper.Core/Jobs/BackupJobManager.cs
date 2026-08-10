@@ -107,12 +107,13 @@ public sealed class BackupJobManager : IDisposable
 
         BackupJobBatch batch = new(startedJobs);
         batch.CollectScannedFiles();
-        Stopwatch sortingStopwatch = Stopwatch.StartNew();
+        BackupLog.Info("Сканирование всех дисков завершено.");
+        BackupLog.Info($"Всего найдено файлов: {batch.Files.Count:N0}");
+        BackupLog.Info($"Общий размер файлов по всем дискам: {batch.Files.Sum(file => file.Length):N0} байтов");
+        BackupLog.Flush();
+
         BackupLog.Info($"Начало сортировки общей очереди: {batch.Files.Count:N0} файлов.");
         List<FileInfo> sortedFiles = orderFiles(batch.Files, cancellationToken);
-        sortingStopwatch.Stop();
-        BackupLog.Info($"Конец сортировки. Время сортировки: " +
-            $"{sortingStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
         batch.SetSortedFiles(sortedFiles);
         foreach (BackupJob job in batch.Jobs)
             manifestStore.Save(job.Manifest);
@@ -204,12 +205,8 @@ public sealed class BackupJobManager : IDisposable
         try
         {
             List<FileInfo> scannedFiles = ScanAndRecord(job, token);
-            Stopwatch sortingStopwatch = Stopwatch.StartNew();
             BackupLog.Info($"Начало сортировки файлов диска {job.SourceDrive.Name}");
             List<FileInfo> sortedFiles = orderFiles(scannedFiles, token);
-            sortingStopwatch.Stop();
-            BackupLog.Info($"Сортировка файлов диска {job.SourceDrive.Name} завершена. Время сортировки: " +
-                $"{sortingStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
             job.SetSortedFiles(sortedFiles);
             manifestStore.Save(job.Manifest);
         }

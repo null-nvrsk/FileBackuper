@@ -1,41 +1,74 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace FileBackuper.Core;
 
 public static class FilePriorityService
 {
+    private static readonly ConditionalWeakTable<FileInfo, PriorityValue> PriorityCache = new();
+    private static readonly string[] PreferredFolderNames =
+    {
+        "фото", "фотки", "foto", "icloud", "apple", "telegram", "instagram", "whatsapp", "dcim", "camera",
+        "pictures"
+    };
+
     public static IComparer<FileInfo> BackupPriorityComparer { get; } =
         Comparer<FileInfo>.Create(CompareByBackupPriority);
 
     // TODO: добавить автоматические тесты для паттернов камеры и ожидаемого порядка файлов
     // при одинаковых и разных приоритетах.
-    public static List<FileInfo> OrderByBackupPriority(IEnumerable<FileInfo> files, CancellationToken cancellationToken)
+    public static List<FileInfo> OrderByBackupPriority(IEnumerable<FileInfo> files,
+        CancellationToken cancellationToken)
     {
-        Dictionary<FileInfo, int> priorities = new();
+        ArgumentNullException.ThrowIfNull(files);
+
+        Stopwatch priorityStopwatch = Stopwatch.StartNew();
+        List<PrioritizedFile> prioritizedFiles = new();
         foreach (FileInfo file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            priorities.Add(file, CalculatePriority(file));
+            prioritizedFiles.Add(new PrioritizedFile(file, GetBackupPriority(file)));
         }
+        priorityStopwatch.Stop();
 
-        List<FileInfo> orderedFiles = priorities.Keys.OrderBy(file => file, BackupPriorityComparer).ToList();
-        foreach (FileInfo file in orderedFiles)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Trace.WriteLine($"Файл = {file}, размер = {file.Length:N0}, приоритет = {priorities[file]}");
-        }
+        cancellationToken.ThrowIfCancellationRequested();
+        Stopwatch sortingStopwatch = Stopwatch.StartNew();
+        prioritizedFiles.Sort(ComparePrioritizedFiles);
+        sortingStopwatch.Stop();
 
+        List<FileInfo> orderedFiles = prioritizedFiles.Select(item => item.File).ToList();
+        TimeSpan totalSortingDuration = priorityStopwatch.Elapsed + sortingStopwatch.Elapsed;
+        BackupLog.Info($"Рассчитаны приоритеты {orderedFiles.Count:N0} файлов. Время: " +
+            $"{priorityStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
+        BackupLog.Info($"Сортировка готовых приоритетов завершена. Время: " +
+            $"{sortingStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
         BackupLog.Info($"Размер отсортированного списка: {orderedFiles.Count:N0}");
+        BackupLog.Info($"Конец сортировки. Время сортировки: {totalSortingDuration:hh\\:mm\\:ss\\.ff}");
+
+        if (BackupLog.IsVerboseEnabled)
+        {
+            Stopwatch verboseLoggingStopwatch = Stopwatch.StartNew();
+            foreach (PrioritizedFile item in prioritizedFiles)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                BackupLog.Verbose($"Файл = {item.File}, размер = {item.File.Length:N0}, " +
+                    $"приоритет = {item.Priority}");
+            }
+            verboseLoggingStopwatch.Stop();
+            BackupLog.Info($"Подробный журнал приоритетов записан. Время: " +
+                $"{verboseLoggingStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
+        }
+
         return orderedFiles;
     }
 
     public static int GetBackupPriority(FileInfo file)
     {
         ArgumentNullException.ThrowIfNull(file);
-        return CalculatePriority(file);
+        return PriorityCache.GetValue(file, static value => new PriorityValue(CalculatePriority(value))).Value;
     }
 
-    /// <summary>Compares files in backup order: a negative result means <paramref name="first"/> goes first.</summary>
+    /// <summary>Сравнивает файлы в порядке резервного копирования.</summary>
     public static int CompareByBackupPriority(FileInfo? first, FileInfo? second)
     {
         if (ReferenceEquals(first, second))
@@ -49,6 +82,14 @@ public static class FilePriorityService
         return priorityComparison != 0
             ? priorityComparison
             : StringComparer.OrdinalIgnoreCase.Compare(first.FullName, second.FullName);
+    }
+
+    private static int ComparePrioritizedFiles(PrioritizedFile first, PrioritizedFile second)
+    {
+        int priorityComparison = second.Priority.CompareTo(first.Priority);
+        return priorityComparison != 0
+            ? priorityComparison
+            : StringComparer.OrdinalIgnoreCase.Compare(first.File.FullName, second.File.FullName);
     }
 
     private static int CalculatePriority(FileInfo file)
@@ -79,10 +120,14 @@ public static class FilePriorityService
     private static int GetFolderPriority(string directoryName)
     {
         string directory = directoryName.ToLowerInvariant();
-        if (new[] { "фото", "фотки", "foto", "icloud", "apple", "telegram", "instagram", "whatsapp", "dcim", "camera", "pictures" }.Any(directory.Contains)) return 40;
+        if (PreferredFolderNames.Any(directory.Contains)) return 40;
         if (directory.Contains("desktop") || directory.Contains("documents")) return 30;
         if (directory.Contains("recycle.bin") || directory.Contains("temp")) return 10;
         if (directory.Contains("downloads") || directory.Contains("загрузки")) return 0;
         return 20;
     }
+
+    private sealed record PriorityValue(int Value);
+
+    private readonly record struct PrioritizedFile(FileInfo File, int Priority);
 }

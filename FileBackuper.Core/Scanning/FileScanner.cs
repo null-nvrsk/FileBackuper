@@ -57,7 +57,7 @@ public static class FileScanner
                     {
                         if (!CloudFileState.IsContentAvailableLocally(file))
                         {
-                            Trace.WriteLine($"Cloud-only file skipped without downloading: {file.FullName}");
+                            BackupLog.Verbose($"Облачный файл пропущен без скачивания: {file.FullName}");
                             continue;
                         }
                     }
@@ -124,7 +124,7 @@ public static class FileScanner
         if (!MediaFileClassifier.IsImage(file) && !MediaFileClassifier.IsVideo(file)) return true;
         if (file.Length < 10_000 || file.Length > 4_000_000_000)
         {
-            Trace.WriteLine($"Файл пропущен из-за размера ({file.Length:N0} байтов): {file.Name}");
+            BackupLog.Verbose($"Файл пропущен из-за размера ({file.Length:N0} байтов): {file.Name}");
             return true;
         }
 

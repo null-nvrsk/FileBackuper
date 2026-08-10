@@ -19,15 +19,16 @@ public static class LoggingConfiguration
             )
         );
 
-#if DEBUG
-        Trace.AutoFlush = true;
-#endif
+//#if DEBUG
+//        Trace.AutoFlush = true;
+//#endif
 
         IConfigurationRoot configuration = BuildConfiguration();
-        TraceSwitch ts = new(displayName: "FileBackuperSwitch",
-                             description: "This switch is set via a JSON cinfig.");
+        TraceSwitch traceSwitch = new(displayName: "FileBackuperSwitch",
+                                      description: "Уровень журналирования FileBackuper.");
 
-        configuration.GetSection("FileBackuperSwitch").Bind(ts);
+        configuration.GetSection("FileBackuperSwitch").Bind(traceSwitch);
+        BackupLog.Configure(traceSwitch.Level);
     }
 
     private static IConfigurationRoot BuildConfiguration()
