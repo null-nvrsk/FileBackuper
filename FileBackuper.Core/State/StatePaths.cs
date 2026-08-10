@@ -7,10 +7,10 @@ public static class StatePaths
         if (!string.IsNullOrWhiteSpace(configuredStateDirectory))
             return Path.GetFullPath(configuredStateDirectory, AppContext.BaseDirectory);
 
-        string commonApplicationDataDirectory = Environment.GetFolderPath(
-            Environment.SpecialFolder.CommonApplicationData);
+        string localApplicationDataDirectory = Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData);
 
-        return Path.Combine(commonApplicationDataDirectory, "FileBackuper", "state");
+        return Path.Combine(localApplicationDataDirectory, "FileBackuper", "state");
     }
 
     public static string EnsureStateDirectory(string? configuredStateDirectory)

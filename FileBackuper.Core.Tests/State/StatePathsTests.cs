@@ -15,11 +15,11 @@ public class StatePathsTests
     }
 
     [Fact]
-    public void ResolveStateDirectory_ReturnsProgramDataPathWhenSettingIsEmpty()
+    public void ResolveStateDirectory_ReturnsLocalApplicationDataPathWhenSettingIsEmpty()
     {
         string stateDirectory = StatePaths.ResolveStateDirectory(string.Empty);
         string expectedDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FileBackuper",
             "state");
 
