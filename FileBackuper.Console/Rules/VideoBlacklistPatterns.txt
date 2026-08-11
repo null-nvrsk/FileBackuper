@@ -1,0 +1,11 @@
+# Release and encoding markers
+\b(?:b[dr]rip|webrip|web[-_. ]?dl|remux|xvid|x264|x265|h[._ ]?264|h[._ ]?265)\b
+\b(?:bluray|blu-ray|uhd)\b
+
+# Resolution markers
+\b(?:720[pi]|1080[pi]|2160p|4k)\b
+
+# Series and localization markers
+\b(?:season|сезон)\b
+\bs\d{1,2}e\d{1,2}\b
+\b(?:dub|dubbing)\b

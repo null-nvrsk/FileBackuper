@@ -10,6 +10,7 @@ public sealed class CopyScheduler
     private readonly object syncRoot = new();
     private readonly List<JobQueue> queues = new();
     private readonly JobManifestStore manifestStore;
+    private readonly BackupFilePriorityService priorityService;
     private readonly System.Diagnostics.Stopwatch copyStopwatch = new();
     private bool copyingStarted;
     private int copiedFileCount;
@@ -19,10 +20,12 @@ public sealed class CopyScheduler
     private TimeSpan totalCopyDuration;
     private bool finalStatisticsLogged;
 
-    public CopyScheduler(JobManifestStore manifestStore)
+    public CopyScheduler(JobManifestStore manifestStore, BackupFilePriorityService priorityService)
     {
         ArgumentNullException.ThrowIfNull(manifestStore);
+        ArgumentNullException.ThrowIfNull(priorityService);
         this.manifestStore = manifestStore;
+        this.priorityService = priorityService;
     }
 
     public int PendingFileCount
@@ -188,7 +191,7 @@ public sealed class CopyScheduler
         {
             JobQueue? selectedQueue = queues
                 .Where(queue => queue.Files.Count > 0)
-                .OrderBy(queue => queue.Files.Peek().File, FilePriorityService.BackupPriorityComparer)
+                .OrderBy(queue => queue.Files.Peek().Candidate, priorityService.Comparer)
                 .FirstOrDefault();
 
             if (selectedQueue is null)
@@ -198,14 +201,14 @@ public sealed class CopyScheduler
             }
 
             QueuedFile queuedFile = selectedQueue.Files.Dequeue();
-            scheduledFile = new ScheduledFile(selectedQueue.Job, queuedFile.File, queuedFile.Length);
+            scheduledFile = new ScheduledFile(selectedQueue.Job, queuedFile.Candidate, queuedFile.Length);
             return true;
         }
     }
 
     private void Complete(ScheduledFile scheduledFile)
     {
-        scheduledFile.Job.MarkFileCopied(scheduledFile.File);
+        scheduledFile.Job.MarkFileCopied(scheduledFile.Candidate);
         lock (syncRoot)
         {
             JobQueue queue = queues.Single(item => item.Job == scheduledFile.Job);
@@ -219,7 +222,7 @@ public sealed class CopyScheduler
     private void Skip(ScheduledFile scheduledFile, string reason)
     {
         Stat.RemoveFileFromTotalStat(scheduledFile.File, scheduledFile.Length);
-        scheduledFile.Job.MarkFileSkipped(scheduledFile.File, scheduledFile.Length);
+        scheduledFile.Job.MarkFileSkipped(scheduledFile.Candidate, scheduledFile.Length);
         lock (syncRoot)
         {
             JobQueue queue = queues.Single(item => item.Job == scheduledFile.Job);
@@ -292,7 +295,8 @@ public sealed class CopyScheduler
         public JobQueue(BackupJob job)
         {
             Job = job;
-            Files = new Queue<QueuedFile>(job.Files.Select(file => new QueuedFile(file, file.Length)));
+            Files = new Queue<QueuedFile>(job.Files.Select(candidate =>
+                new QueuedFile(candidate, candidate.File.Length)));
         }
 
         public BackupJob Job { get; }
@@ -300,7 +304,10 @@ public sealed class CopyScheduler
         public Queue<QueuedFile> Files { get; }
     }
 
-    private sealed record QueuedFile(FileInfo File, long Length);
+    private sealed record QueuedFile(BackupFileCandidate Candidate, long Length);
 }
 
-public sealed record ScheduledFile(BackupJob Job, FileInfo File, long Length);
+public sealed record ScheduledFile(BackupJob Job, BackupFileCandidate Candidate, long Length)
+{
+    public FileInfo File => Candidate.File;
+}

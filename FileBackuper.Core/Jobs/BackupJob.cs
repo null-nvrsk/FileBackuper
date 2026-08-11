@@ -6,7 +6,7 @@ namespace FileBackuper.Core;
 /// </summary>
 public sealed class BackupJob : IDisposable
 {
-    private readonly List<FileInfo> files = new();
+    private readonly List<BackupFileCandidate> files = new();
 
     public BackupJob(DriveInfo sourceDrive, VolumeLease lease, JobManifest manifest)
     {
@@ -32,37 +32,39 @@ public sealed class BackupJob : IDisposable
 
     public JobStatus Status => Manifest.Status;
 
-    public IReadOnlyList<FileInfo> Files => files;
+    public IReadOnlyList<BackupFileCandidate> Files => files;
 
-    public void SetScannedFiles(IEnumerable<FileInfo> scannedFiles)
+    public void SetScannedFiles(IEnumerable<BackupFileCandidate> scannedFiles)
     {
         ArgumentNullException.ThrowIfNull(scannedFiles);
         ReplaceFiles(scannedFiles);
 
         Manifest = UpdateManifest(JobStatus.Sorting,
             filesFound: files.Count,
-            totalBytes: files.Sum(file => file.Length));
+            totalBytes: files.Sum(candidate => candidate.File.Length));
     }
 
-    public void SetSortedFiles(IEnumerable<FileInfo> sortedFiles)
+    public void SetSortedFiles(IEnumerable<BackupFileCandidate> sortedFiles)
     {
         ArgumentNullException.ThrowIfNull(sortedFiles);
         ReplaceFiles(sortedFiles);
         Manifest = UpdateManifest(JobStatus.Copying);
     }
 
-    public void MarkFileCopied(FileInfo file)
+    public void MarkFileCopied(BackupFileCandidate candidate)
     {
-        ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(candidate);
+        FileInfo file = candidate.File;
         Manifest = UpdateManifest(JobStatus.Copying,
             filesCompleted: Manifest.FilesCompleted + 1,
             completedBytes: Manifest.CompletedBytes + file.Length,
             currentFile: file.FullName);
     }
 
-    public void MarkFileSkipped(FileInfo file, long fileSize)
+    public void MarkFileSkipped(BackupFileCandidate candidate, long fileSize)
     {
-        ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(candidate);
+        FileInfo file = candidate.File;
         if (fileSize < 0)
             throw new ArgumentOutOfRangeException(nameof(fileSize));
 
@@ -85,13 +87,13 @@ public sealed class BackupJob : IDisposable
 
     public void Dispose() => Lease.Dispose();
 
-    private void ReplaceFiles(IEnumerable<FileInfo> newFiles)
+    private void ReplaceFiles(IEnumerable<BackupFileCandidate> newFiles)
     {
         files.Clear();
-        foreach (FileInfo file in newFiles)
+        foreach (BackupFileCandidate candidate in newFiles)
         {
-            ArgumentNullException.ThrowIfNull(file);
-            files.Add(file);
+            ArgumentNullException.ThrowIfNull(candidate);
+            files.Add(candidate);
         }
     }
 

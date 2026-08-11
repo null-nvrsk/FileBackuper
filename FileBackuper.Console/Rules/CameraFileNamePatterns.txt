@@ -1,0 +1,22 @@
+# Canon and common camera names
+(img|mov)_\d{4}\.(jpe?g|avi)
+mvi_\d{4}\.avi
+eos\d{5}\.jpe?g
+
+# Nikon, Sony and other cameras
+dsc.\d{4}\.jpe?g
+sany\d{4}\.jpg
+(p|s)\d{7}\.(jpe?g|mov|avi)
+
+# Smartphones and messengers
+\d{8}_\d{6}\.(jpe?g|mp4|mpg|mov|3gp)
+(img|vid)-\d{8}-wa\d{4}\.(jpe?g|mp4|mpg)
+(photo|video)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}.*\.(jpe?g|mp4|mpg)
+\d{4}-\d{2}-\d{2}\s\d{2}[._]\d{2}[._]\d{2}\.(jpe?g|mp4|mpg)
+
+# Legacy devices
+st._\d{4}\.jpg
+foto\s\d{3}\.jpg
+imag\d{4}\.(jpg|asf)
+video\d{4}\.3gp
+m2u\d{5}\.mpg

@@ -4,6 +4,10 @@ namespace FileBackuper.Core;
 
 public static class FileScanner
 {
+    private static readonly IReadOnlySet<string> DefaultSkipDirectoryNames = new HashSet<string>(
+        new[] { "Windows", "Program Files", "Program Files (x86)", "ProgramData", "AppData" },
+        StringComparer.OrdinalIgnoreCase);
+
     public static List<DriveInfo> GetDrivesToScan(string destinationDirectory)
     {
         List<DriveInfo> drivesToScan = new();
@@ -27,11 +31,16 @@ public static class FileScanner
         return drivesToScan;
     }
 
-    public static List<FileInfo> Scan(DirectoryInfo root, CancellationToken cancellationToken)
-        => ScanWithStatistics(root, cancellationToken).Files;
+    public static List<FileInfo> Scan(DirectoryInfo root, CancellationToken cancellationToken,
+        IEnumerable<string>? skipDirectoryNames = null) =>
+        ScanWithStatistics(root, cancellationToken, skipDirectoryNames).Files;
 
-    public static FileScanResult ScanWithStatistics(DirectoryInfo root, CancellationToken cancellationToken)
+    public static FileScanResult ScanWithStatistics(DirectoryInfo root, CancellationToken cancellationToken,
+        IEnumerable<string>? skipDirectoryNames = null)
     {
+        ArgumentNullException.ThrowIfNull(root);
+        HashSet<string> skippedDirectories = new(skipDirectoryNames ?? DefaultSkipDirectoryNames,
+            StringComparer.OrdinalIgnoreCase);
         List<FileInfo> result = new();
         int cloudFilesSkipped = 0;
         Stack<DirectoryInfo> directoriesToScan = new();
@@ -76,9 +85,6 @@ public static class FileScanner
                         continue;
                     }
 
-                    if (ShouldSkipFile(file))
-                        continue;
-
                     result.Add(file);
                     Trace.WriteLine(file.FullName);
                 }
@@ -86,7 +92,7 @@ public static class FileScanner
                 foreach (DirectoryInfo subdirectory in directory.EnumerateDirectories("*", enumerationOptions))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (ShouldSkipDirectory(subdirectory.Name) || IsFileSystemLink(subdirectory))
+                    if (ShouldSkipDirectory(subdirectory.Name, skippedDirectories) || IsFileSystemLink(subdirectory))
                         continue;
 
                     directoriesToScan.Push(subdirectory);
@@ -104,17 +110,16 @@ public static class FileScanner
         return new FileScanResult(result, cloudFilesSkipped);
     }
 
-    public static bool ShouldSkipDirectory(string directoryName) => directoryName switch
+    public static bool ShouldSkipDirectory(string directoryName) =>
+        ShouldSkipDirectory(directoryName, DefaultSkipDirectoryNames);
+
+    public static bool ShouldSkipDirectory(string directoryName, IReadOnlySet<string> skipDirectoryNames)
     {
-        "Windows" => true,
-        "Program Files" => true,
-        "Program Files (x86)" => true,
-        "ProgramData" => true,
-#if RELEASE
-        "AppData" => true,
-#endif
-        _ => false
-    };
+        if (string.IsNullOrWhiteSpace(directoryName))
+            throw new ArgumentException("The directory name cannot be empty.", nameof(directoryName));
+        ArgumentNullException.ThrowIfNull(skipDirectoryNames);
+        return skipDirectoryNames.Contains(directoryName);
+    }
 
     private static bool IsFileSystemLink(DirectoryInfo directory)
     {
@@ -127,27 +132,4 @@ public static class FileScanner
         return directory.LinkTarget is not null;
     }
 
-    public static bool ShouldSkipFile(FileInfo file)
-    {
-        // TODO: добавить автоматические тесты для ограничений размера и blacklist видеофайлов.
-        if (!MediaFileClassifier.IsImage(file) && !MediaFileClassifier.IsVideo(file)) return true;
-        if (file.Length < 10_000 || file.Length > 4_000_000_000)
-        {
-            BackupLog.Verbose($"Файл пропущен из-за размера ({file.Length:N0} байтов): {file.Name}");
-            return true;
-        }
-
-        string name = file.Name.ToLowerInvariant();
-        bool isFilm = name.Contains("rip") || name.Contains("web") || name.Contains(".ts.") ||
-            name.Contains(".org") || name.Contains("dub") || name.Contains("remux") ||
-            name.Contains("season") || name.Contains("сезон") || name.Contains("xvid") ||
-            name.Contains("720i") || name.Contains("720p") || name.Contains("1080i") || name.Contains("1080p");
-        if (MediaFileClassifier.IsVideo(file) && isFilm)
-        {
-            Trace.WriteLine($"Видеофайл пропущен по признакам фильма: {file.Name}");
-            return true;
-        }
-
-        return false;
-    }
 }

@@ -28,9 +28,26 @@ internal class BackupApplication
             LoggingConfiguration.Configure(destinationDirectory);
 
             JobManifestStore manifestStore = new(stateDirectory);
+            string rulesDirectory = Path.Combine(AppContext.BaseDirectory, "Rules");
+            RegexPatternSet cameraFileNamePatterns = RegexPatternSet.Load(
+                Path.Combine(rulesDirectory, "CameraFileNamePatterns.txt"));
+            RegexPatternSet videoBlacklistPatterns = RegexPatternSet.Load(
+                Path.Combine(rulesDirectory, "VideoBlacklistPatterns.txt"));
+            MediaFileAnalysisService mediaFileAnalysisService = new(options.MinFileSizeBytes,
+                options.MaxFileSizeBytes, cameraFileNamePatterns, videoBlacklistPatterns);
+            FileSizeGroupService fileSizeGroupService = new(options.FileSizeGroups);
+            BackupFilePriorityService priorityService = new(fileSizeGroupService);
+            BackupFileDiagnosticFormatter diagnosticFormatter = new(fileSizeGroupService);
             string instanceId = Guid.NewGuid().ToString("N");
-            using BackupJobManager jobManager = new(stateDirectory, destinationDirectory, manifestStore, instanceId);
-            CopyScheduler copyScheduler = new(manifestStore);
+            using BackupJobManager jobManager = new(stateDirectory, destinationDirectory, manifestStore, instanceId,
+                skipDirectoryNames: options.SkipDirectoryNames,
+                includeBrowserCaches: options.IncludeBrowserCaches,
+                minFileSizeBytes: options.MinFileSizeBytes,
+                maxFileSizeBytes: options.MaxFileSizeBytes,
+                mediaFileAnalysisService: mediaFileAnalysisService,
+                priorityService: priorityService,
+                diagnosticFormatter: diagnosticFormatter);
+            CopyScheduler copyScheduler = new(manifestStore, priorityService);
 
             RunBackup(jobManager, copyScheduler, destinationDirectory, options, cancellationSource.Token);
             if (!jobManager.HasForeignWork)

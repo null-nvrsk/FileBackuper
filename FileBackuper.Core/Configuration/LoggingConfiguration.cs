@@ -8,7 +8,20 @@ public static class LoggingConfiguration
 {
     public static BackupOptions LoadBackupOptions()
     {
-        return BuildConfiguration().GetSection("Backup").Get<BackupOptions>() ?? new BackupOptions();
+        IConfigurationSection section = BuildConfiguration().GetSection("Backup");
+        BackupOptions options = new();
+        if (!section.Exists())
+            return options;
+
+        // ConfigurationBinder adds values to initialized collections instead of replacing them.
+        // Clear only collections explicitly present in JSON so omitted settings retain defaults.
+        if (section.GetSection(nameof(BackupOptions.FileSizeGroups)).Exists())
+            options.FileSizeGroups.Clear();
+        if (section.GetSection(nameof(BackupOptions.SkipDirectoryNames)).Exists())
+            options.SkipDirectoryNames.Clear();
+
+        section.Bind(options);
+        return options;
     }
 
     public static void Configure(string logFolder)

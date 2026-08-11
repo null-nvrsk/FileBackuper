@@ -15,7 +15,7 @@ public class CopySchedulerTests
         DriveInfo drive = new(workspace.RootDirectory.Root.FullName);
         BackupJob imageJob = CreateCopyingJob(drive, imageLease, "image-volume", image);
         BackupJob videoJob = CreateCopyingJob(drive, videoLease, "video-volume", video);
-        CopyScheduler scheduler = new(new JobManifestStore(workspace.RootDirectory.FullName));
+        CopyScheduler scheduler = CreateScheduler(workspace);
         scheduler.Enqueue(videoJob);
         scheduler.Enqueue(imageJob);
 
@@ -24,6 +24,30 @@ public class CopySchedulerTests
         Assert.True(found);
         Assert.Same(image, scheduledFile.File);
         Assert.Same(imageJob, scheduledFile.Job);
+    }
+
+    [Fact]
+    public void TryTakeNext_UsesCandidateAnalysisAcrossJobQueues()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo ordinaryFile = workspace.CreateFile("a-ordinary.jpg", 20_000);
+        FileInfo cameraFile = workspace.CreateFile("z-camera.jpg", 20_000);
+        using VolumeLease ordinaryLease = Assert.IsType<VolumeLease>(
+            VolumeLease.TryAcquire(workspace.RootDirectory.FullName, "ordinary-volume"));
+        using VolumeLease cameraLease = Assert.IsType<VolumeLease>(
+            VolumeLease.TryAcquire(workspace.RootDirectory.FullName, "camera-volume"));
+        DriveInfo drive = new(workspace.RootDirectory.Root.FullName);
+        BackupJob ordinaryJob = CreateCopyingJob(drive, ordinaryLease, "ordinary-volume",
+            CreateCandidate(ordinaryFile, CameraEvidence.None));
+        BackupJob cameraJob = CreateCopyingJob(drive, cameraLease, "camera-volume",
+            CreateCandidate(cameraFile, CameraEvidence.PatternAndExif));
+        CopyScheduler scheduler = CreateScheduler(workspace);
+        scheduler.Enqueue(ordinaryJob);
+        scheduler.Enqueue(cameraJob);
+
+        Assert.True(scheduler.TryTakeNext(out ScheduledFile scheduledFile));
+        Assert.Same(cameraFile, scheduledFile.File);
+        Assert.Same(cameraJob, scheduledFile.Job);
     }
 
     [Fact]
@@ -36,7 +60,7 @@ public class CopySchedulerTests
         DriveInfo drive = new(workspace.RootDirectory.Root.FullName);
         BackupJob job = CreateCopyingJob(drive, lease, "volume-1", sourceFile);
         JobManifestStore store = new(workspace.RootDirectory.FullName);
-        CopyScheduler scheduler = new(store);
+        CopyScheduler scheduler = CreateScheduler(store);
         scheduler.Enqueue(job);
 
         await scheduler.CopyAvailableAsync(Path.Combine(workspace.RootDirectory.FullName, "destination"),
@@ -64,7 +88,7 @@ public class CopySchedulerTests
         DriveInfo drive = new(workspace.RootDirectory.Root.FullName);
         BackupJob firstJob = CreateCopyingJob(drive, firstLease, "first-volume", firstVideo);
         BackupJob newJob = CreateCopyingJob(drive, newLease, "new-volume", newImage);
-        CopyScheduler scheduler = new(new JobManifestStore(workspace.RootDirectory.FullName));
+        CopyScheduler scheduler = CreateScheduler(workspace);
         scheduler.Enqueue(firstJob);
 
         Assert.True(await scheduler.CopyNextAsync(Path.Combine(workspace.RootDirectory.FullName, "destination"),
@@ -88,7 +112,7 @@ public class CopySchedulerTests
         BackupJob job = CreateCopyingJob(new DriveInfo(workspace.RootDirectory.Root.FullName), lease,
             "existing-volume", sourceFile);
         JobManifestStore store = new(workspace.RootDirectory.FullName);
-        CopyScheduler scheduler = new(store);
+        CopyScheduler scheduler = CreateScheduler(store);
         Stat.Reset();
         Stat.AddFilesToTotalStat(new[] { sourceFile });
         scheduler.Enqueue(job);
@@ -111,9 +135,31 @@ public class CopySchedulerTests
 
     private static BackupJob CreateCopyingJob(DriveInfo drive, VolumeLease lease, string volumeId, FileInfo file)
     {
+        BackupFileCandidate candidate = CreateCandidate(file, CameraEvidence.None);
+        return CreateCopyingJob(drive, lease, volumeId, candidate);
+    }
+
+    private static BackupJob CreateCopyingJob(DriveInfo drive, VolumeLease lease, string volumeId,
+        BackupFileCandidate candidate)
+    {
         BackupJob job = new(drive, lease, new JobManifest { VolumeId = volumeId, Status = JobStatus.Scanning });
-        job.SetScannedFiles(new[] { file });
-        job.SetSortedFiles(new[] { file });
+        job.SetScannedFiles(new[] { candidate });
+        job.SetSortedFiles(new[] { candidate });
         return job;
     }
+
+    private static BackupFileCandidate CreateCandidate(FileInfo file, CameraEvidence cameraEvidence) =>
+        new(file, new MediaFileAnalysis
+        {
+            Kind = MediaFileClassifier.GetKindByExtension(file),
+            DetectionSource = MediaDetectionSource.Extension,
+            CameraEvidence = cameraEvidence
+        });
+
+    private static CopyScheduler CreateScheduler(TestWorkspace workspace) =>
+        CreateScheduler(new JobManifestStore(workspace.RootDirectory.FullName));
+
+    private static CopyScheduler CreateScheduler(JobManifestStore store) =>
+        new(store, new BackupFilePriorityService(
+            new FileSizeGroupService(new BackupOptions().FileSizeGroups)));
 }

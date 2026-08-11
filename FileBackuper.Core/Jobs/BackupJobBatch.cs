@@ -5,8 +5,8 @@ namespace FileBackuper.Core;
 /// </summary>
 public sealed class BackupJobBatch
 {
-    private readonly Dictionary<FileInfo, BackupJob> sourceJobs = new();
-    private readonly List<FileInfo> files = new();
+    private readonly Dictionary<BackupFileCandidate, BackupJob> sourceJobs = new();
+    private readonly List<BackupFileCandidate> files = new();
 
     public BackupJobBatch(IEnumerable<BackupJob> jobs)
     {
@@ -18,7 +18,7 @@ public sealed class BackupJobBatch
 
     public IReadOnlyList<BackupJob> Jobs { get; }
 
-    public IReadOnlyList<FileInfo> Files => files;
+    public IReadOnlyList<BackupFileCandidate> Files => files;
 
     public void CollectScannedFiles()
     {
@@ -27,19 +27,19 @@ public sealed class BackupJobBatch
 
         foreach (BackupJob job in Jobs.Where(job => job.Status == JobStatus.Sorting))
         {
-            foreach (FileInfo file in job.Files)
+            foreach (BackupFileCandidate candidate in job.Files)
             {
-                files.Add(file);
-                sourceJobs.Add(file, job);
+                files.Add(candidate);
+                sourceJobs.Add(candidate, job);
             }
         }
     }
 
-    public void SetSortedFiles(IEnumerable<FileInfo> sortedFiles)
+    public void SetSortedFiles(IEnumerable<BackupFileCandidate> sortedFiles)
     {
         ArgumentNullException.ThrowIfNull(sortedFiles);
-        List<FileInfo> orderedFiles = sortedFiles.ToList();
-        if (orderedFiles.Count != files.Count || orderedFiles.Any(file => !sourceJobs.ContainsKey(file)))
+        List<BackupFileCandidate> orderedFiles = sortedFiles.ToList();
+        if (orderedFiles.Count != files.Count || orderedFiles.Any(candidate => !sourceJobs.ContainsKey(candidate)))
             throw new ArgumentException("The sorted files must be the files collected by this batch.", nameof(sortedFiles));
 
         files.Clear();
@@ -47,16 +47,16 @@ public sealed class BackupJobBatch
 
         foreach (BackupJob job in Jobs.Where(job => job.Status == JobStatus.Sorting))
         {
-            IEnumerable<FileInfo> jobFiles = files.Where(file => sourceJobs[file] == job);
+            IEnumerable<BackupFileCandidate> jobFiles = files.Where(candidate => sourceJobs[candidate] == job);
             job.SetSortedFiles(jobFiles);
         }
     }
 
-    public BackupJob GetSourceJob(FileInfo file)
+    public BackupJob GetSourceJob(BackupFileCandidate candidate)
     {
-        ArgumentNullException.ThrowIfNull(file);
-        return sourceJobs.TryGetValue(file, out BackupJob? job)
+        ArgumentNullException.ThrowIfNull(candidate);
+        return sourceJobs.TryGetValue(candidate, out BackupJob? job)
             ? job
-            : throw new ArgumentException("The file does not belong to this batch.", nameof(file));
+            : throw new ArgumentException("The file does not belong to this batch.", nameof(candidate));
     }
 }

@@ -14,7 +14,14 @@ public sealed class BackupJobManager : IDisposable
     private readonly JobManifestStore manifestStore;
     private readonly string instanceId;
     private readonly Func<DirectoryInfo, CancellationToken, FileScanResult> scanFiles;
-    private readonly Func<IEnumerable<FileInfo>, CancellationToken, List<FileInfo>> orderFiles;
+    private readonly Func<IEnumerable<BackupFileCandidate>, CancellationToken, List<BackupFileCandidate>> orderFiles;
+    private readonly IReadOnlyCollection<string> skipDirectoryNames;
+    private readonly bool includeBrowserCaches;
+    private readonly long minFileSizeBytes;
+    private readonly long maxFileSizeBytes;
+    private readonly BrowserCacheScanner browserCacheScanner;
+    private readonly MediaFileAnalysisService mediaFileAnalysisService;
+    private readonly BackupFileDiagnosticFormatter diagnosticFormatter;
     private readonly ConcurrentDictionary<string, ManagedJob> jobs = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource stopSource = new();
     private bool disposed;
@@ -22,7 +29,15 @@ public sealed class BackupJobManager : IDisposable
     public BackupJobManager(string stateDirectory, string destinationDirectory, JobManifestStore manifestStore,
         string instanceId,
         Func<DirectoryInfo, CancellationToken, FileScanResult>? scanFiles = null,
-        Func<IEnumerable<FileInfo>, CancellationToken, List<FileInfo>>? orderFiles = null)
+        Func<IEnumerable<BackupFileCandidate>, CancellationToken, List<BackupFileCandidate>>? orderFiles = null,
+        IReadOnlyCollection<string>? skipDirectoryNames = null,
+        bool includeBrowserCaches = false,
+        long minFileSizeBytes = 10_000,
+        long maxFileSizeBytes = 4_000_000_000,
+        BrowserCacheScanner? browserCacheScanner = null,
+        MediaFileAnalysisService? mediaFileAnalysisService = null,
+        BackupFilePriorityService? priorityService = null,
+        BackupFileDiagnosticFormatter? diagnosticFormatter = null)
     {
         if (string.IsNullOrWhiteSpace(stateDirectory))
             throw new ArgumentException("The state directory cannot be empty.", nameof(stateDirectory));
@@ -36,8 +51,23 @@ public sealed class BackupJobManager : IDisposable
         this.destinationDirectory = Path.GetFullPath(destinationDirectory);
         this.manifestStore = manifestStore;
         this.instanceId = instanceId;
-        this.scanFiles = scanFiles ?? FileScanner.ScanWithStatistics;
-        this.orderFiles = orderFiles ?? FilePriorityService.OrderByBackupPriority;
+        this.skipDirectoryNames = skipDirectoryNames ?? new[]
+        {
+            "Windows", "Program Files", "Program Files (x86)", "ProgramData", "AppData"
+        };
+        this.scanFiles = scanFiles ?? ((root, token) =>
+            FileScanner.ScanWithStatistics(root, token, this.skipDirectoryNames));
+        BackupFilePriorityService effectivePriorityService = priorityService ??
+            new BackupFilePriorityService(new FileSizeGroupService(new BackupOptions().FileSizeGroups));
+        this.orderFiles = orderFiles ?? effectivePriorityService.OrderByBackupPriority;
+        this.includeBrowserCaches = includeBrowserCaches;
+        this.minFileSizeBytes = minFileSizeBytes;
+        this.maxFileSizeBytes = maxFileSizeBytes;
+        this.browserCacheScanner = browserCacheScanner ?? new BrowserCacheScanner();
+        this.mediaFileAnalysisService = mediaFileAnalysisService ?? new MediaFileAnalysisService(
+            minFileSizeBytes, maxFileSizeBytes, RegexPatternSet.Empty, RegexPatternSet.Empty);
+        this.diagnosticFormatter = diagnosticFormatter ?? new BackupFileDiagnosticFormatter(
+            new FileSizeGroupService(new BackupOptions().FileSizeGroups));
     }
 
     public IReadOnlyList<BackupJob> Jobs => jobs.Values.Select(item => item.Job).ToList();
@@ -109,11 +139,11 @@ public sealed class BackupJobManager : IDisposable
         batch.CollectScannedFiles();
         BackupLog.Info("Сканирование всех дисков завершено.");
         BackupLog.Info($"Всего найдено файлов: {batch.Files.Count:N0}");
-        BackupLog.Info($"Общий размер файлов по всем дискам: {batch.Files.Sum(file => file.Length):N0} байтов");
+        BackupLog.Info($"Общий размер файлов по всем дискам: {batch.Files.Sum(candidate => candidate.File.Length):N0} байтов");
         BackupLog.Flush();
 
         BackupLog.Info($"Начало сортировки общей очереди: {batch.Files.Count:N0} файлов.");
-        List<FileInfo> sortedFiles = orderFiles(batch.Files, cancellationToken);
+        List<BackupFileCandidate> sortedFiles = orderFiles(batch.Files, cancellationToken);
         batch.SetSortedFiles(sortedFiles);
         foreach (BackupJob job in batch.Jobs)
             manifestStore.Save(job.Manifest);
@@ -204,9 +234,9 @@ public sealed class BackupJobManager : IDisposable
 
         try
         {
-            List<FileInfo> scannedFiles = ScanAndRecord(job, token);
+            List<BackupFileCandidate> scannedFiles = ScanAndRecord(job, token);
             BackupLog.Info($"Начало сортировки файлов диска {job.SourceDrive.Name}");
-            List<FileInfo> sortedFiles = orderFiles(scannedFiles, token);
+            List<BackupFileCandidate> sortedFiles = orderFiles(scannedFiles, token);
             job.SetSortedFiles(sortedFiles);
             manifestStore.Save(job.Manifest);
         }
@@ -244,25 +274,54 @@ public sealed class BackupJobManager : IDisposable
         }
     }
 
-    private List<FileInfo> ScanAndRecord(BackupJob job, CancellationToken cancellationToken)
+    private List<BackupFileCandidate> ScanAndRecord(BackupJob job, CancellationToken cancellationToken)
     {
         Stopwatch scanningStopwatch = Stopwatch.StartNew();
         BackupLog.Info($"Начало сканирования диска {job.SourceDrive.Name}");
         FileScanResult scanResult = scanFiles(job.SourceDrive.RootDirectory, cancellationToken);
         List<FileInfo> scannedFiles = scanResult.Files;
+        HashSet<string> browserCachePaths = new(StringComparer.OrdinalIgnoreCase);
+        int browserCacheFilesFound = 0;
+        if (includeBrowserCaches)
+        {
+            List<FileInfo> browserCacheFiles = browserCacheScanner.Scan(job.SourceDrive.RootDirectory,
+                minFileSizeBytes, maxFileSizeBytes, cancellationToken);
+            browserCacheFilesFound = browserCacheFiles.Count;
+            scannedFiles.AddRange(browserCacheFiles);
+            browserCachePaths.UnionWith(browserCacheFiles.Select(file => file.FullName));
+        }
+
+        List<BackupFileCandidate> candidates = new(scannedFiles.Count);
+        int filteredFiles = 0;
+        foreach (FileInfo file in scannedFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            MediaFileAnalysis analysis = mediaFileAnalysisService.Analyze(file,
+                browserCachePaths.Contains(file.FullName));
+            diagnosticFormatter.Log(file, analysis);
+            if (analysis.IsSkipped)
+            {
+                filteredFiles++;
+                continue;
+            }
+
+            candidates.Add(new BackupFileCandidate(file, analysis));
+        }
         scanningStopwatch.Stop();
 
-        Stat.AddFilesToTotalStat(scannedFiles);
-        job.SetScannedFiles(scannedFiles);
+        Stat.AddFilesToTotalStat(candidates.Select(candidate => candidate.File));
+        job.SetScannedFiles(candidates);
         manifestStore.Save(job.Manifest);
 
         BackupLog.Info($"Сканирование диска {job.SourceDrive.Name} завершено.");
         BackupLog.Info($"Время сканирования: {scanningStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
-        BackupLog.Info($"Найдено файлов: {scannedFiles.Count:N0}");
-        BackupLog.Info($"Общий размер файлов: {scannedFiles.Sum(file => file.Length):N0} байтов");
+        BackupLog.Info($"Найдено файлов: {candidates.Count:N0}");
+        BackupLog.Info($"Общий размер файлов: {candidates.Sum(candidate => candidate.File.Length):N0} байтов");
+        BackupLog.Info($"Пропущено фильтрами анализа: {filteredFiles:N0}");
         BackupLog.Info($"Пропущено облачных файлов: {scanResult.CloudFilesSkipped:N0}");
+        BackupLog.Info($"Медиафайлов найдено в кэше браузеров по сигнатуре: {browserCacheFilesFound:N0}");
         BackupLog.Flush();
-        return scannedFiles;
+        return candidates;
     }
 
     private JobManifest CreateManifest(string volumeId, string driveLetter)

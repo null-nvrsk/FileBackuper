@@ -21,4 +21,13 @@
     <ProjectReference Include="..\FileBackuper.Core\FileBackuper.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\FileBackuper.Console\Rules\*.txt" Link="Rules\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\FileBackuper.Console\appsettings.json" Link="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

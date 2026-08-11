@@ -22,13 +22,10 @@ public class MediaFileClassifierTests
         Assert.True(MediaFileClassifier.IsVideo(new FileInfo(fileName)));
     }
 
-    [Theory]
-    [InlineData("IMG_0001.jpg")]
-    [InlineData("DSC_0581.jpg")]
-    [InlineData("VID-20201214-WA0028.mp4")]
-    public void HasCameraFileNamePattern_ReturnsTrueForKnownCameraPatterns(string fileName)
+    [Fact]
+    public void GetKindByExtension_ReturnsUnknownForFileWithoutExtension()
     {
-        Assert.True(MediaFileClassifier.HasCameraFileNamePattern(new FileInfo(fileName)));
+        Assert.Equal(MediaKind.Unknown, MediaFileClassifier.GetKindByExtension(new FileInfo("cache-entry")));
     }
 
     [Fact]
