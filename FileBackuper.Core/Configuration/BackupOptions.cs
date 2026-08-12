@@ -14,6 +14,7 @@ public sealed class BackupOptions
     public string? ScanDirectory { get; init; } = null;
     public long MinFileSizeBytes { get; init; } = 10_000;
     public long MaxFileSizeBytes { get; init; } = 4_000_000_000;
+    public bool EnableExifAnalysis { get; init; } = true;
 
     public List<FileSizeGroupOptions> FileSizeGroups { get; init; } = new()
     {
@@ -24,7 +25,7 @@ public sealed class BackupOptions
         new() { Name = "Huge", MinBytes = 1_073_741_825, MaxBytes = 4_000_000_000 }
     };
 
-    public bool IncludeBrowserCaches { get; init; } = false;
+    public bool IncludeBrowserCaches { get; init; } = true;
     public CloudFileMode CloudFileMode { get; init; } = CloudFileMode.FastSkip;
 
     public List<string> SkipDirectoryNames { get; init; } = new()

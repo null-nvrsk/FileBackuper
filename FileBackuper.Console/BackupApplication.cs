@@ -26,6 +26,10 @@ internal class BackupApplication
             FileCopier.CreateDestinationDirectory(destinationDirectory);
             Stat.ConfigureStatusDirectory(destinationDirectory);
             LoggingConfiguration.Configure(destinationDirectory);
+            BackupLog.Info($"Анализ EXIF: {(options.EnableExifAnalysis ? "включён" : "выключен")}");
+            BackupLog.Info($"Сканирование кэша браузеров и анализ файлов без расширения: " +
+                $"{(options.IncludeBrowserCaches ? "включены" : "выключены")}");
+            BackupLog.Flush();
 
             JobManifestStore manifestStore = new(stateDirectory);
             string rulesDirectory = Path.Combine(AppContext.BaseDirectory, "Rules");
@@ -34,7 +38,8 @@ internal class BackupApplication
             RegexPatternSet videoBlacklistPatterns = RegexPatternSet.Load(
                 Path.Combine(rulesDirectory, "VideoBlacklistPatterns.txt"));
             MediaFileAnalysisService mediaFileAnalysisService = new(options.MinFileSizeBytes,
-                options.MaxFileSizeBytes, cameraFileNamePatterns, videoBlacklistPatterns);
+                options.MaxFileSizeBytes, cameraFileNamePatterns, videoBlacklistPatterns,
+                enableExifAnalysis: options.EnableExifAnalysis);
             FileSizeGroupService fileSizeGroupService = new(options.FileSizeGroups);
             BackupFilePriorityService priorityService = new(fileSizeGroupService);
             BackupFileDiagnosticFormatter diagnosticFormatter = new(fileSizeGroupService);

@@ -2,10 +2,16 @@ namespace FileBackuper.Core;
 
 public sealed class BrowserCacheScanner
 {
-    private static readonly string[][] CacheDirectoryParts =
+    private static readonly string[][] FixedChromiumProfileParts =
     {
-        new[] { "AppData", "Local", "Microsoft", "Edge", "User Data", "Default", "Cache", "Cache_Data" },
-        new[] { "AppData", "Local", "Google", "Chrome", "User Data", "Default", "Cache", "Cache_Data" }
+        new[] { "AppData", "Local", "Microsoft", "Edge", "User Data", "Default" },
+        new[] { "AppData", "Local", "Google", "Chrome", "User Data", "Default" }
+    };
+
+    private static readonly string[][] OperaProfileParts =
+    {
+        new[] { "AppData", "Local", "Opera Software", "Opera Stable" },
+        new[] { "AppData", "Local", "Opera Software", "Opera GX Stable" }
     };
 
     private readonly FileSignatureDetector signatureDetector;
@@ -45,12 +51,10 @@ public sealed class BrowserCacheScanner
             foreach (DirectoryInfo profileDirectory in usersDirectory.EnumerateDirectories("*", profileOptions))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                foreach (string[] cacheParts in CacheDirectoryParts)
-                {
-                    string cachePath = cacheParts.Aggregate(profileDirectory.FullName, Path.Combine);
-                    ScanCacheDirectory(new DirectoryInfo(cachePath), minFileSizeBytes, maxFileSizeBytes,
+                foreach (DirectoryInfo cacheDirectory in EnumerateCacheDirectories(profileDirectory,
+                             profileOptions, cancellationToken))
+                    ScanCacheDirectory(cacheDirectory, minFileSizeBytes, maxFileSizeBytes,
                         result, signatureStatistics, cancellationToken);
-                }
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -62,6 +66,84 @@ public sealed class BrowserCacheScanner
         return new BrowserCacheScanResult(result, signatureStatistics.Count,
             signatureStatistics.Duration);
     }
+
+    private static IEnumerable<DirectoryInfo> EnumerateCacheDirectories(DirectoryInfo userDirectory,
+        EnumerationOptions profileOptions, CancellationToken cancellationToken)
+    {
+        foreach (string[] profileParts in FixedChromiumProfileParts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            DirectoryInfo? cacheDirectory = ResolveChromiumCacheDirectory(
+                Combine(userDirectory.FullName, profileParts));
+            if (cacheDirectory is not null)
+                yield return cacheDirectory;
+        }
+
+        string yandexUserDataPath = Combine(userDirectory.FullName,
+            "AppData", "Local", "Yandex", "YandexBrowser", "User Data");
+        foreach (DirectoryInfo profileDirectory in EnumerateChromiumProfiles(
+                     new DirectoryInfo(yandexUserDataPath), profileOptions))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            DirectoryInfo? cacheDirectory = ResolveChromiumCacheDirectory(profileDirectory.FullName);
+            if (cacheDirectory is not null)
+                yield return cacheDirectory;
+        }
+
+        foreach (string[] profileParts in OperaProfileParts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            DirectoryInfo? cacheDirectory = ResolveChromiumCacheDirectory(
+                Combine(userDirectory.FullName, profileParts));
+            if (cacheDirectory is not null)
+                yield return cacheDirectory;
+        }
+
+        DirectoryInfo firefoxProfilesDirectory = new(Combine(userDirectory.FullName,
+            "AppData", "Local", "Mozilla", "Firefox", "Profiles"));
+        if (!firefoxProfilesDirectory.Exists)
+            yield break;
+
+        foreach (DirectoryInfo firefoxProfile in firefoxProfilesDirectory.EnumerateDirectories("*", profileOptions))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            DirectoryInfo entriesDirectory = new(Path.Combine(firefoxProfile.FullName, "cache2", "entries"));
+            if (entriesDirectory.Exists)
+                yield return entriesDirectory;
+        }
+    }
+
+    private static IEnumerable<DirectoryInfo> EnumerateChromiumProfiles(DirectoryInfo userDataDirectory,
+        EnumerationOptions profileOptions)
+    {
+        if (!userDataDirectory.Exists)
+            yield break;
+
+        foreach (DirectoryInfo profile in userDataDirectory.EnumerateDirectories("*", profileOptions))
+        {
+            if (string.Equals(profile.Name, "Default", StringComparison.OrdinalIgnoreCase) ||
+                profile.Name.StartsWith("Profile ", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return profile;
+            }
+        }
+    }
+
+    private static DirectoryInfo? ResolveChromiumCacheDirectory(string profilePath)
+    {
+        DirectoryInfo cacheDirectory = new(Path.Combine(profilePath, "Cache"));
+        if (!cacheDirectory.Exists)
+            return null;
+
+        DirectoryInfo cacheDataDirectory = new(Path.Combine(cacheDirectory.FullName, "Cache_Data"));
+        return cacheDataDirectory.Exists ? cacheDataDirectory : cacheDirectory;
+    }
+
+    private static string Combine(string root, params string[] parts) =>
+        parts.Aggregate(root, Path.Combine);
+
+    private static string Combine(string root, IEnumerable<string> parts) =>
+        parts.Aggregate(root, Path.Combine);
 
     private void ScanCacheDirectory(DirectoryInfo cacheDirectory, long minFileSizeBytes, long maxFileSizeBytes,
         ICollection<FileInfo> result, SignatureStatistics signatureStatistics,

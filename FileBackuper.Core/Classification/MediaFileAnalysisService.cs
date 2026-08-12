@@ -8,10 +8,12 @@ public sealed class MediaFileAnalysisService
     private readonly RegexPatternSet videoBlacklistPatterns;
     private readonly IExifMetadataReader exifMetadataReader;
     private readonly FileSignatureDetector signatureDetector;
+    private readonly bool enableExifAnalysis;
 
     public MediaFileAnalysisService(long minFileSizeBytes, long maxFileSizeBytes,
         RegexPatternSet cameraFileNamePatterns, RegexPatternSet videoBlacklistPatterns,
-        IExifMetadataReader? exifMetadataReader = null, FileSignatureDetector? signatureDetector = null)
+        IExifMetadataReader? exifMetadataReader = null, FileSignatureDetector? signatureDetector = null,
+        bool enableExifAnalysis = true)
     {
         if (minFileSizeBytes < 0 || maxFileSizeBytes < minFileSizeBytes)
             throw new ArgumentException("The media file size range is invalid.");
@@ -24,6 +26,7 @@ public sealed class MediaFileAnalysisService
         this.videoBlacklistPatterns = videoBlacklistPatterns;
         this.exifMetadataReader = exifMetadataReader ?? new ExifMetadataReader();
         this.signatureDetector = signatureDetector ?? new FileSignatureDetector();
+        this.enableExifAnalysis = enableExifAnalysis;
     }
 
     public MediaFileAnalysis Analyze(FileInfo file, bool allowSignatureDetection)
@@ -97,7 +100,7 @@ public sealed class MediaFileAnalysisService
         }
 
         string? matchedCameraPattern = cameraFileNamePatterns.FindMatchingPattern(file.Name);
-        bool exifAnalysisAttempted = kind == MediaKind.Image;
+        bool exifAnalysisAttempted = kind == MediaKind.Image && enableExifAnalysis;
         TimeSpan exifAnalysisDuration = TimeSpan.Zero;
         ExifMetadata exifMetadata = ExifMetadata.Empty;
         if (exifAnalysisAttempted)

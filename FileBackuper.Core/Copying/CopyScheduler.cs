@@ -124,7 +124,8 @@ public sealed class CopyScheduler
             }
 
             System.Diagnostics.Stopwatch fileCopyStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            bool alreadyExists = FileCopier.CopyFile(scheduledFile.File, destinationDirectory, cancellationToken);
+            bool alreadyExists = FileCopier.CopyFile(scheduledFile.Candidate, destinationDirectory,
+                cancellationToken);
             fileCopyStopwatch.Stop();
             if (alreadyExists)
             {

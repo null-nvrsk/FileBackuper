@@ -46,6 +46,53 @@ public class BrowserCacheScannerTests
         Assert.Empty(result);
     }
 
+    [Fact]
+    public void Scan_FindsFirefoxYandexOperaAndOperaGxCaches()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo firefoxFile = CreateCacheFile(workspace, Path.Combine("Users", "Alice", "AppData", "Local",
+            "Mozilla", "Firefox", "Profiles", "abcd.default-release", "cache2", "entries", "ABC123"),
+            jpeg: true);
+        FileInfo yandexDefaultFile = CreateCacheFile(workspace, Path.Combine("Users", "Alice", "AppData", "Local",
+            "Yandex", "YandexBrowser", "User Data", "Default", "Cache", "Cache_Data", "f_000001"),
+            jpeg: true);
+        FileInfo yandexProfileFile = CreateCacheFile(workspace, Path.Combine("Users", "Alice", "AppData", "Local",
+            "Yandex", "YandexBrowser", "User Data", "Profile 2", "Cache", "Cache_Data", "f_000002"),
+            jpeg: true);
+        FileInfo operaFile = CreateCacheFile(workspace, Path.Combine("Users", "Alice", "AppData", "Local",
+            "Opera Software", "Opera Stable", "Cache", "Cache_Data", "f_000003"), jpeg: true);
+        FileInfo operaGxFile = CreateCacheFile(workspace, Path.Combine("Users", "Alice", "AppData", "Local",
+            "Opera Software", "Opera GX Stable", "Cache", "Cache_Data", "f_000004"), jpeg: true);
+        BrowserCacheScanner scanner = new();
+
+        BrowserCacheScanResult result = scanner.ScanWithStatistics(
+            workspace.RootDirectory, 10_000, 20_000, CancellationToken.None);
+
+        Assert.Equal(5, result.Files.Count);
+        Assert.Equal(5, result.SignatureAnalysisCount);
+        Assert.Contains(result.Files, file => file.FullName == firefoxFile.FullName);
+        Assert.Contains(result.Files, file => file.FullName == yandexDefaultFile.FullName);
+        Assert.Contains(result.Files, file => file.FullName == yandexProfileFile.FullName);
+        Assert.Contains(result.Files, file => file.FullName == operaFile.FullName);
+        Assert.Contains(result.Files, file => file.FullName == operaGxFile.FullName);
+    }
+
+    [Fact]
+    public void Scan_UsesCacheFolderAsFallbackWithoutScanningCacheDataTwice()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo fallbackFile = CreateCacheFile(workspace, Path.Combine("Users", "Alice", "AppData", "Local",
+            "Opera Software", "Opera Stable", "Cache", "legacy-entry"), jpeg: true);
+        BrowserCacheScanner scanner = new();
+
+        BrowserCacheScanResult result = scanner.ScanWithStatistics(
+            workspace.RootDirectory, 10_000, 20_000, CancellationToken.None);
+
+        Assert.Single(result.Files);
+        Assert.Equal(fallbackFile.FullName, result.Files[0].FullName);
+        Assert.Equal(1, result.SignatureAnalysisCount);
+    }
+
     private static FileInfo CreateCacheFile(TestWorkspace workspace, string relativePath, bool jpeg,
         int size = 10_000)
     {
