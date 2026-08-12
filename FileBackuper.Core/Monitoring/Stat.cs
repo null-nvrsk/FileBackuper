@@ -139,6 +139,22 @@ public static class Stat
         }
     }
 
+    public static void AddFilesToTotalStat(IEnumerable<BackupFileCandidate> candidates)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        lock (syncRoot)
+        {
+            foreach (BackupFileCandidate candidate in candidates)
+            {
+                ArgumentNullException.ThrowIfNull(candidate);
+                totalCount++;
+                totalSize += candidate.Length;
+                if (candidate.Analysis.Kind == MediaKind.Image) totalImageSize += candidate.Length;
+                if (candidate.Analysis.Kind == MediaKind.Video) totalVideoSize += candidate.Length;
+            }
+        }
+    }
+
     public static void AddFileToCompletedStat(FileInfo file)
     {
         ArgumentNullException.ThrowIfNull(file);
@@ -149,6 +165,19 @@ public static class Stat
             completeSize += file.Length;
             if (MediaFileClassifier.IsImage(file)) completeImageSize += file.Length;
             if (MediaFileClassifier.IsVideo(file)) completeVideoSize += file.Length;
+        }
+    }
+
+    public static void AddFileToCompletedStat(BackupFileCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        lock (syncRoot)
+        {
+            currentFileSize = candidate.Length;
+            completeCount++;
+            completeSize += candidate.Length;
+            if (candidate.Analysis.Kind == MediaKind.Image) completeImageSize += candidate.Length;
+            if (candidate.Analysis.Kind == MediaKind.Video) completeVideoSize += candidate.Length;
         }
     }
 

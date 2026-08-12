@@ -139,7 +139,10 @@ public sealed class BackupJobManager : IDisposable
         batch.CollectScannedFiles();
         BackupLog.Info("Сканирование всех дисков завершено.");
         BackupLog.Info($"Всего найдено файлов: {batch.Files.Count:N0}");
-        BackupLog.Info($"Общий размер файлов по всем дискам: {batch.Files.Sum(candidate => candidate.File.Length):N0} байтов");
+        BackupLog.Info($"Общий размер файлов по всем дискам: {batch.Files.Sum(candidate => candidate.Length):N0} байтов");
+        MediaAnalysisStatistics totalAnalysisStatistics = MediaAnalysisStatistics.Sum(
+            batch.Jobs.Select(job => job.AnalysisStatistics));
+        LogAnalysisStatistics("Начальная партия", totalAnalysisStatistics);
         BackupLog.Flush();
 
         BackupLog.Info($"Начало сортировки общей очереди: {batch.Files.Count:N0} файлов.");
@@ -159,6 +162,15 @@ public sealed class BackupJobManager : IDisposable
         return jobs.TryGetValue(volumeId, out ManagedJob? managedJob)
             ? managedJob.PreparationTask
             : null;
+    }
+
+    public void LogTotalAnalysisStatistics()
+    {
+        ThrowIfDisposed();
+        MediaAnalysisStatistics statistics = MediaAnalysisStatistics.Sum(
+            jobs.Values.Select(item => item.Job.AnalysisStatistics));
+        LogAnalysisStatistics("Итого за запуск", statistics);
+        BackupLog.Flush();
     }
 
     public async Task StopAsync()
@@ -249,6 +261,7 @@ public sealed class BackupJobManager : IDisposable
         {
             job.MarkFailed(exception.Message);
             manifestStore.Save(job.Manifest);
+            LogJobFailure(job, "подготовки", exception);
         }
     }
 
@@ -271,6 +284,7 @@ public sealed class BackupJobManager : IDisposable
         {
             job.MarkFailed(exception.Message);
             manifestStore.Save(job.Manifest);
+            LogJobFailure(job, "сканирования", exception);
         }
     }
 
@@ -282,23 +296,55 @@ public sealed class BackupJobManager : IDisposable
         List<FileInfo> scannedFiles = scanResult.Files;
         HashSet<string> browserCachePaths = new(StringComparer.OrdinalIgnoreCase);
         int browserCacheFilesFound = 0;
+        long browserSignatureAnalysisCount = 0;
+        TimeSpan browserSignatureAnalysisDuration = TimeSpan.Zero;
         if (includeBrowserCaches)
         {
-            List<FileInfo> browserCacheFiles = browserCacheScanner.Scan(job.SourceDrive.RootDirectory,
+            BrowserCacheScanResult browserCacheResult = browserCacheScanner.ScanWithStatistics(
+                job.SourceDrive.RootDirectory,
                 minFileSizeBytes, maxFileSizeBytes, cancellationToken);
+            List<FileInfo> browserCacheFiles = browserCacheResult.Files;
             browserCacheFilesFound = browserCacheFiles.Count;
+            browserSignatureAnalysisCount = browserCacheResult.SignatureAnalysisCount;
+            browserSignatureAnalysisDuration = browserCacheResult.SignatureAnalysisDuration;
             scannedFiles.AddRange(browserCacheFiles);
             browserCachePaths.UnionWith(browserCacheFiles.Select(file => file.FullName));
         }
 
         List<BackupFileCandidate> candidates = new(scannedFiles.Count);
         int filteredFiles = 0;
+        long exifFilesAnalyzed = 0;
+        TimeSpan exifAnalysisDuration = TimeSpan.Zero;
+        long extensionlessFilesAnalyzed = browserSignatureAnalysisCount;
+        TimeSpan extensionlessAnalysisDuration = browserSignatureAnalysisDuration;
         foreach (FileInfo file in scannedFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            MediaFileAnalysis analysis = mediaFileAnalysisService.Analyze(file,
-                browserCachePaths.Contains(file.FullName));
+            MediaFileAnalysis analysis;
+            try
+            {
+                analysis = mediaFileAnalysisService.Analyze(file,
+                    browserCachePaths.Contains(file.FullName));
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                filteredFiles++;
+                BackupLog.Warning($"Ошибка анализа файла | File={file.FullName} | " +
+                    $"Error={exception.GetType().Name}: {exception.Message}");
+                continue;
+            }
+
             diagnosticFormatter.Log(file, analysis);
+            if (analysis.ExifAnalysisAttempted)
+            {
+                exifFilesAnalyzed++;
+                exifAnalysisDuration += analysis.ExifAnalysisDuration;
+            }
+            if (analysis.SignatureAnalysisAttempted)
+            {
+                extensionlessFilesAnalyzed++;
+                extensionlessAnalysisDuration += analysis.SignatureAnalysisDuration;
+            }
             if (analysis.IsSkipped)
             {
                 filteredFiles++;
@@ -309,20 +355,42 @@ public sealed class BackupJobManager : IDisposable
         }
         scanningStopwatch.Stop();
 
-        Stat.AddFilesToTotalStat(candidates.Select(candidate => candidate.File));
+        Stat.AddFilesToTotalStat(candidates);
+        MediaAnalysisStatistics analysisStatistics = new(exifFilesAnalyzed, exifAnalysisDuration,
+            extensionlessFilesAnalyzed, extensionlessAnalysisDuration);
+        job.SetAnalysisStatistics(analysisStatistics);
         job.SetScannedFiles(candidates);
         manifestStore.Save(job.Manifest);
 
         BackupLog.Info($"Сканирование диска {job.SourceDrive.Name} завершено.");
         BackupLog.Info($"Время сканирования: {scanningStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
         BackupLog.Info($"Найдено файлов: {candidates.Count:N0}");
-        BackupLog.Info($"Общий размер файлов: {candidates.Sum(candidate => candidate.File.Length):N0} байтов");
+        BackupLog.Info($"Общий размер файлов: {candidates.Sum(candidate => candidate.Length):N0} байтов");
         BackupLog.Info($"Пропущено фильтрами анализа: {filteredFiles:N0}");
         BackupLog.Info($"Пропущено облачных файлов: {scanResult.CloudFilesSkipped:N0}");
         BackupLog.Info($"Медиафайлов найдено в кэше браузеров по сигнатуре: {browserCacheFilesFound:N0}");
+        LogAnalysisStatistics($"Диск {job.SourceDrive.Name}", analysisStatistics);
         BackupLog.Flush();
         return candidates;
     }
+
+    private static void LogJobFailure(BackupJob job, string operation, Exception exception)
+    {
+        BackupLog.Warning($"Ошибка {operation} диска {job.SourceDrive.Name} | " +
+            $"Exception={exception.GetType().FullName} | Message={exception.Message}");
+        BackupLog.Flush();
+    }
+
+    private static void LogAnalysisStatistics(string scope, MediaAnalysisStatistics statistics)
+    {
+        BackupLog.Info($"Анализ EXIF | {scope} | Проверок={statistics.ExifFilesAnalyzed:N0} | " +
+            $"Общее время={FormatDuration(statistics.ExifAnalysisDuration)}");
+        BackupLog.Info($"Анализ файлов без расширения | {scope} | Проверок={statistics.ExtensionlessFilesAnalyzed:N0} | " +
+            $"Общее время={FormatDuration(statistics.ExtensionlessAnalysisDuration)}");
+    }
+
+    private static string FormatDuration(TimeSpan duration) =>
+        $"{(long)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}.{duration.Milliseconds:000}";
 
     private JobManifest CreateManifest(string volumeId, string driveLetter)
     {

@@ -47,14 +47,14 @@ public sealed class BackupFilePriorityService
     public int GetSizeGroupIndex(BackupFileCandidate candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);
-        return sizeGroupService.GetGroupIndex(candidate.File.Length);
+        return sizeGroupService.GetGroupIndex(candidate.Length);
     }
 
     private PriorityKey CreateKey(BackupFileCandidate candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);
         return new PriorityKey(
-            sizeGroupService.GetGroupIndex(candidate.File.Length),
+            sizeGroupService.GetGroupIndex(candidate.Length),
             GetDetectionRank(candidate.Analysis.DetectionSource),
             candidate.Analysis.CameraEvidence,
             folderPriorityService.GetPriority(candidate.File),

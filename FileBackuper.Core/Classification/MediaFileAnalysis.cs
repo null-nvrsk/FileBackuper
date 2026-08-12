@@ -2,6 +2,16 @@ namespace FileBackuper.Core;
 
 public sealed record MediaFileAnalysis
 {
+    public long? FileSizeBytes { get; init; }
+
+    public bool ExifAnalysisAttempted { get; init; }
+
+    public TimeSpan ExifAnalysisDuration { get; init; }
+
+    public bool SignatureAnalysisAttempted { get; init; }
+
+    public TimeSpan SignatureAnalysisDuration { get; init; }
+
     public MediaKind Kind { get; init; } = MediaKind.Unknown;
 
     public MediaDetectionSource DetectionSource { get; init; } = MediaDetectionSource.None;

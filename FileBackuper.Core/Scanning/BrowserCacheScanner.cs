@@ -16,16 +16,21 @@ public sealed class BrowserCacheScanner
     }
 
     public List<FileInfo> Scan(DirectoryInfo volumeRoot, long minFileSizeBytes, long maxFileSizeBytes,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        ScanWithStatistics(volumeRoot, minFileSizeBytes, maxFileSizeBytes, cancellationToken).Files;
+
+    public BrowserCacheScanResult ScanWithStatistics(DirectoryInfo volumeRoot, long minFileSizeBytes,
+        long maxFileSizeBytes, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(volumeRoot);
         if (minFileSizeBytes < 0 || maxFileSizeBytes < minFileSizeBytes)
             throw new ArgumentException("The browser cache file size range is invalid.");
 
         List<FileInfo> result = new();
+        SignatureStatistics signatureStatistics = new();
         DirectoryInfo usersDirectory = new(Path.Combine(volumeRoot.FullName, "Users"));
         if (!usersDirectory.Exists)
-            return result;
+            return new BrowserCacheScanResult(result, 0, TimeSpan.Zero);
 
         EnumerationOptions profileOptions = new()
         {
@@ -44,7 +49,7 @@ public sealed class BrowserCacheScanner
                 {
                     string cachePath = cacheParts.Aggregate(profileDirectory.FullName, Path.Combine);
                     ScanCacheDirectory(new DirectoryInfo(cachePath), minFileSizeBytes, maxFileSizeBytes,
-                        result, cancellationToken);
+                        result, signatureStatistics, cancellationToken);
                 }
             }
         }
@@ -54,11 +59,13 @@ public sealed class BrowserCacheScanner
                 BackupLog.GetExceptionDescription(exception));
         }
 
-        return result;
+        return new BrowserCacheScanResult(result, signatureStatistics.Count,
+            signatureStatistics.Duration);
     }
 
     private void ScanCacheDirectory(DirectoryInfo cacheDirectory, long minFileSizeBytes, long maxFileSizeBytes,
-        ICollection<FileInfo> result, CancellationToken cancellationToken)
+        ICollection<FileInfo> result, SignatureStatistics signatureStatistics,
+        CancellationToken cancellationToken)
     {
         if (!cacheDirectory.Exists)
             return;
@@ -82,7 +89,19 @@ public sealed class BrowserCacheScanner
                     continue;
                 }
 
-                FileSignatureResult? signature = signatureDetector.Detect(file);
+                signatureStatistics.Count++;
+                long signatureStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+                FileSignatureResult? signature;
+                try
+                {
+                    signature = signatureDetector.Detect(file);
+                }
+                finally
+                {
+                    signatureStatistics.Duration += TimeSpan.FromSeconds(
+                        (double)(System.Diagnostics.Stopwatch.GetTimestamp() - signatureStarted) /
+                        System.Diagnostics.Stopwatch.Frequency);
+                }
                 if (signature is null)
                     continue;
 
@@ -97,4 +116,16 @@ public sealed class BrowserCacheScanner
                 BackupLog.GetExceptionDescription(exception));
         }
     }
+
+    private sealed class SignatureStatistics
+    {
+        public long Count { get; set; }
+
+        public TimeSpan Duration { get; set; }
+    }
 }
+
+public sealed record BrowserCacheScanResult(
+    List<FileInfo> Files,
+    long SignatureAnalysisCount,
+    TimeSpan SignatureAnalysisDuration);

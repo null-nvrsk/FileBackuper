@@ -34,6 +34,14 @@ public sealed class BackupJob : IDisposable
 
     public IReadOnlyList<BackupFileCandidate> Files => files;
 
+    public MediaAnalysisStatistics AnalysisStatistics { get; private set; } = MediaAnalysisStatistics.Empty;
+
+    public void SetAnalysisStatistics(MediaAnalysisStatistics statistics)
+    {
+        ArgumentNullException.ThrowIfNull(statistics);
+        AnalysisStatistics = statistics;
+    }
+
     public void SetScannedFiles(IEnumerable<BackupFileCandidate> scannedFiles)
     {
         ArgumentNullException.ThrowIfNull(scannedFiles);
@@ -41,7 +49,7 @@ public sealed class BackupJob : IDisposable
 
         Manifest = UpdateManifest(JobStatus.Sorting,
             filesFound: files.Count,
-            totalBytes: files.Sum(candidate => candidate.File.Length));
+            totalBytes: files.Sum(candidate => candidate.Length));
     }
 
     public void SetSortedFiles(IEnumerable<BackupFileCandidate> sortedFiles)
@@ -57,7 +65,7 @@ public sealed class BackupJob : IDisposable
         FileInfo file = candidate.File;
         Manifest = UpdateManifest(JobStatus.Copying,
             filesCompleted: Manifest.FilesCompleted + 1,
-            completedBytes: Manifest.CompletedBytes + file.Length,
+            completedBytes: Manifest.CompletedBytes + candidate.Length,
             currentFile: file.FullName);
     }
 

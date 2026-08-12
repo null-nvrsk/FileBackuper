@@ -41,7 +41,16 @@ public sealed class CopyScheduler
     {
         ArgumentNullException.ThrowIfNull(batch);
         foreach (BackupJob job in batch.Jobs)
-            Enqueue(job);
+        {
+            if (job.Status == JobStatus.Copying)
+            {
+                Enqueue(job);
+                continue;
+            }
+
+            BackupLog.Warning($"Задача диска {job.SourceDrive.Name} не добавлена в очередь | " +
+                $"Status={job.Status} | Error={job.Manifest.LastError ?? "-"}");
+        }
     }
 
     public void Enqueue(BackupJob job)
@@ -124,7 +133,7 @@ public sealed class CopyScheduler
                 return true;
             }
 
-            Stat.AddFileToCompletedStat(scheduledFile.File);
+            Stat.AddFileToCompletedStat(scheduledFile.Candidate);
             Stat.RecalculateEstimatedTime();
             Complete(scheduledFile);
             copiedFileCount++;
@@ -296,7 +305,7 @@ public sealed class CopyScheduler
         {
             Job = job;
             Files = new Queue<QueuedFile>(job.Files.Select(candidate =>
-                new QueuedFile(candidate, candidate.File.Length)));
+                new QueuedFile(candidate, candidate.Length)));
         }
 
         public BackupJob Job { get; }

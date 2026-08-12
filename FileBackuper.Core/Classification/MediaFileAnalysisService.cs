@@ -43,7 +43,13 @@ public sealed class MediaFileAnalysisService
         }
 
         if (fileSize < minFileSizeBytes || fileSize > maxFileSizeBytes)
-            return new MediaFileAnalysis { SkipReason = MediaSkipReasons.SizeOutOfRange };
+        {
+            return new MediaFileAnalysis
+            {
+                FileSizeBytes = fileSize,
+                SkipReason = MediaSkipReasons.SizeOutOfRange
+            };
+        }
 
         MediaKind kind = MediaFileClassifier.GetKindByExtension(file);
         MediaDetectionSource detectionSource = kind == MediaKind.Unknown
@@ -52,10 +58,23 @@ public sealed class MediaFileAnalysisService
         string? detectedExtension = detectionSource == MediaDetectionSource.Extension
             ? file.Extension.ToLowerInvariant()
             : null;
+        bool signatureAnalysisAttempted = false;
+        TimeSpan signatureAnalysisDuration = TimeSpan.Zero;
 
         if (kind == MediaKind.Unknown && allowSignatureDetection)
         {
-            FileSignatureResult? signature = signatureDetector.Detect(file);
+            signatureAnalysisAttempted = true;
+            long signatureStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+            FileSignatureResult? signature;
+            try
+            {
+                signature = signatureDetector.Detect(file);
+            }
+            finally
+            {
+                signatureAnalysisDuration = GetElapsedTime(signatureStarted);
+            }
+
             if (signature is not null)
             {
                 kind = signature.Kind;
@@ -68,6 +87,9 @@ public sealed class MediaFileAnalysisService
         {
             return new MediaFileAnalysis
             {
+                FileSizeBytes = fileSize,
+                SignatureAnalysisAttempted = signatureAnalysisAttempted,
+                SignatureAnalysisDuration = signatureAnalysisDuration,
                 Kind = MediaKind.Unknown,
                 DetectionSource = MediaDetectionSource.None,
                 SkipReason = MediaSkipReasons.UnsupportedMediaType
@@ -75,9 +97,21 @@ public sealed class MediaFileAnalysisService
         }
 
         string? matchedCameraPattern = cameraFileNamePatterns.FindMatchingPattern(file.Name);
-        ExifMetadata exifMetadata = kind == MediaKind.Image
-            ? exifMetadataReader.Read(file)
-            : ExifMetadata.Empty;
+        bool exifAnalysisAttempted = kind == MediaKind.Image;
+        TimeSpan exifAnalysisDuration = TimeSpan.Zero;
+        ExifMetadata exifMetadata = ExifMetadata.Empty;
+        if (exifAnalysisAttempted)
+        {
+            long exifStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                exifMetadata = exifMetadataReader.Read(file);
+            }
+            finally
+            {
+                exifAnalysisDuration = GetElapsedTime(exifStarted);
+            }
+        }
         bool hasCameraExif = exifMetadata.HasCameraInfo;
         CameraEvidence cameraEvidence = GetCameraEvidence(matchedCameraPattern is not null, hasCameraExif);
 
@@ -90,6 +124,11 @@ public sealed class MediaFileAnalysisService
 
         return new MediaFileAnalysis
         {
+            FileSizeBytes = fileSize,
+            ExifAnalysisAttempted = exifAnalysisAttempted,
+            ExifAnalysisDuration = exifAnalysisDuration,
+            SignatureAnalysisAttempted = signatureAnalysisAttempted,
+            SignatureAnalysisDuration = signatureAnalysisDuration,
             Kind = kind,
             DetectionSource = detectionSource,
             CameraEvidence = cameraEvidence,
@@ -110,4 +149,8 @@ public sealed class MediaFileAnalysisService
         (true, false) => CameraEvidence.Pattern,
         _ => CameraEvidence.None
     };
+
+    private static TimeSpan GetElapsedTime(long startedTimestamp) => TimeSpan.FromSeconds(
+        (double)(System.Diagnostics.Stopwatch.GetTimestamp() - startedTimestamp) /
+        System.Diagnostics.Stopwatch.Frequency);
 }

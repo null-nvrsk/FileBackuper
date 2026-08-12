@@ -51,6 +51,29 @@ public class CopySchedulerTests
     }
 
     [Fact]
+    public void EnqueueBatch_SkipsFailedJobAndKeepsReadyJob()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo file = workspace.CreateFile("photo.jpg", 20_000);
+        using VolumeLease readyLease = Assert.IsType<VolumeLease>(
+            VolumeLease.TryAcquire(workspace.RootDirectory.FullName, "ready-volume"));
+        using VolumeLease failedLease = Assert.IsType<VolumeLease>(
+            VolumeLease.TryAcquire(workspace.RootDirectory.FullName, "failed-volume"));
+        DriveInfo drive = new(workspace.RootDirectory.Root.FullName);
+        BackupJob readyJob = CreateCopyingJob(drive, readyLease, "ready-volume", file);
+        BackupJob failedJob = new(drive, failedLease,
+            new JobManifest { VolumeId = "failed-volume", Status = JobStatus.Scanning });
+        failedJob.MarkFailed("Damaged media file");
+        CopyScheduler scheduler = CreateScheduler(workspace);
+
+        scheduler.Enqueue(new BackupJobBatch(new[] { failedJob, readyJob }));
+
+        Assert.Equal(1, scheduler.PendingFileCount);
+        Assert.True(scheduler.TryTakeNext(out ScheduledFile scheduledFile));
+        Assert.Same(readyJob, scheduledFile.Job);
+    }
+
+    [Fact]
     public async Task CopyAvailableAsync_SavesProgressForTheSourceVolumeAfterEachFile()
     {
         using TestWorkspace workspace = new();

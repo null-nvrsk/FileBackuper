@@ -27,8 +27,7 @@ public sealed class ExifMetadataReader : IExifMetadataReader
 
             return new ExifMetadata(make, model, dateTimeOriginal);
         }
-        catch (Exception exception) when (exception is ImageProcessingException or IOException or
-                                           UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             BackupLog.Verbose($"EXIF read failed | File={file.FullName} | " +
                 $"Error={BackupLog.GetExceptionDescription(exception)}");

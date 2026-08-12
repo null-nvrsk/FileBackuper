@@ -107,6 +107,7 @@ internal class BackupApplication
                         continue;
                 }
 
+                jobManager.LogTotalAnalysisStatistics();
                 copyScheduler.LogFinalStatistics();
                 TimeSpan duration = Stat.Stop();
                 BackupLog.Info($"Все доступные диски обработаны. Время работы: {duration:hh\\:mm\\:ss\\.ff}");

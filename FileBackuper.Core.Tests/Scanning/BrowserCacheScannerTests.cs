@@ -22,9 +22,13 @@ public class BrowserCacheScannerTests
             "outside-supported-cache"), jpeg: true);
         BrowserCacheScanner scanner = new();
 
-        List<FileInfo> result = scanner.Scan(workspace.RootDirectory, 10_000, 20_000, CancellationToken.None);
+        BrowserCacheScanResult scanResult = scanner.ScanWithStatistics(
+            workspace.RootDirectory, 10_000, 20_000, CancellationToken.None);
+        List<FileInfo> result = scanResult.Files;
 
         Assert.Equal(2, result.Count);
+        Assert.Equal(3, scanResult.SignatureAnalysisCount);
+        Assert.True(scanResult.SignatureAnalysisDuration >= TimeSpan.Zero);
         Assert.Contains(result, file => file.FullName == edgeFile.FullName);
         Assert.Contains(result, file => file.FullName == chromeFile.FullName);
     }

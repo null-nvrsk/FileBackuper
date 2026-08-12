@@ -26,7 +26,7 @@ public sealed class BackupFileDiagnosticFormatter
         ArgumentNullException.ThrowIfNull(file);
         ArgumentNullException.ThrowIfNull(analysis);
 
-        long? fileSize = TryGetFileSize(file);
+        long? fileSize = analysis.FileSizeBytes ?? TryGetFileSize(file);
         string sizeGroup = fileSize.HasValue && sizeGroupService.TryGetGroup(fileSize.Value, out FileSizeGroupOptions? group)
             ? group!.Name
             : EmptyValue;

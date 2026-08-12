@@ -18,6 +18,9 @@ public class MediaFileAnalysisServiceTests
         Assert.Equal(MediaDetectionSource.Extension, result.DetectionSource);
         Assert.Equal(CameraEvidence.PatternAndExif, result.CameraEvidence);
         Assert.Equal("Canon", result.CameraMake);
+        Assert.True(result.ExifAnalysisAttempted);
+        Assert.True(result.ExifAnalysisDuration >= TimeSpan.Zero);
+        Assert.False(result.SignatureAnalysisAttempted);
         Assert.False(result.IsSkipped);
     }
 
@@ -70,6 +73,9 @@ public class MediaFileAnalysisServiceTests
         Assert.Equal(MediaKind.Image, allowed.Kind);
         Assert.Equal(MediaDetectionSource.Signature, allowed.DetectionSource);
         Assert.Equal(".jpg", allowed.DetectedExtension);
+        Assert.True(allowed.SignatureAnalysisAttempted);
+        Assert.True(allowed.SignatureAnalysisDuration >= TimeSpan.Zero);
+        Assert.True(allowed.ExifAnalysisAttempted);
     }
 
     [Fact]
