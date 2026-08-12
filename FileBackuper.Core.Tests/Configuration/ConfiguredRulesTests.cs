@@ -66,7 +66,7 @@ public class ConfiguredRulesTests
     {
         BackupOptions options = LoggingConfiguration.LoadBackupOptions();
 
-        Assert.Equal(5, options.FileSizeGroups.Count);
+        Assert.Equal(23, options.FileSizeGroups.Count);
         Assert.Equal(options.FileSizeGroups.Count,
             options.FileSizeGroups.Select(group => group.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Equal(5, options.SkipDirectoryNames.Count);
