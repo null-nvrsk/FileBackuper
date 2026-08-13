@@ -58,4 +58,54 @@ public class BackupFileDiagnosticFormatterTests
         Assert.EndsWith("Decision=Skip:SizeOutOfRange", result);
         Assert.Equal(14, result.Split(" | ").Length);
     }
+
+    [Fact]
+    public void Format_OmitsExifFieldsWhenExifAnalysisIsDisabled()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo file = workspace.CreateFile("IMG_0001.jpg", 20_000);
+        BackupFileDiagnosticFormatter formatterWithoutExif = new(new FileSizeGroupService(new[]
+        {
+            new FileSizeGroupOptions { Name = "Small", MinBytes = 10_000, MaxBytes = 99_999 }
+        }), includeExifFields: false);
+        MediaFileAnalysis analysis = new()
+        {
+            Kind = MediaKind.Image,
+            CameraEvidence = CameraEvidence.Pattern,
+            HasCameraExif = true,
+            CameraMake = "Canon",
+            CameraModel = "EOS R"
+        };
+
+        string result = formatterWithoutExif.Format(file, analysis);
+
+        Assert.DoesNotContain("HasExif=", result);
+        Assert.DoesNotContain("CameraMake=", result);
+        Assert.DoesNotContain("CameraModel=", result);
+        Assert.Equal(11, result.Split(" | ").Length);
+    }
+
+    [Fact]
+    public void Format_OmitsSignatureFieldsWhenExtensionlessSearchIsDisabled()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo file = workspace.CreateFile("cache-file", 20_000);
+        BackupFileDiagnosticFormatter formatterWithoutSignatures = new(new FileSizeGroupService(new[]
+        {
+            new FileSizeGroupOptions { Name = "Small", MinBytes = 10_000, MaxBytes = 99_999 }
+        }), includeSignatureFields: false);
+        MediaFileAnalysis analysis = new()
+        {
+            Kind = MediaKind.Image,
+            DetectionSource = MediaDetectionSource.Signature,
+            DetectedExtension = ".webp"
+        };
+
+        string result = formatterWithoutSignatures.Format(file, analysis);
+
+        Assert.DoesNotContain("Detection=", result);
+        Assert.DoesNotContain("Format=", result);
+        Assert.DoesNotContain("DetectedExtension=", result);
+        Assert.Equal(12, result.Split(" | ").Length);
+    }
 }

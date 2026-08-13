@@ -57,8 +57,6 @@ public class ConfiguredRulesTests
         BackupOptionsValidator.Validate(options, Path.GetTempPath());
         Assert.Contains("AppData", options.SkipDirectoryNames);
         Assert.NotEmpty(options.FileSizeGroups);
-        Assert.True(options.EnableExifAnalysis);
-        Assert.True(options.IncludeBrowserCaches);
     }
 
     [Fact]

@@ -6,13 +6,18 @@ public sealed class BackupFileDiagnosticFormatter
     private const string EmptyValue = "-";
     private readonly FileSizeGroupService sizeGroupService;
     private readonly FolderPriorityService folderPriorityService;
+    private readonly bool includeExifFields;
+    private readonly bool includeSignatureFields;
 
     public BackupFileDiagnosticFormatter(FileSizeGroupService sizeGroupService,
-        FolderPriorityService? folderPriorityService = null)
+        FolderPriorityService? folderPriorityService = null, bool includeExifFields = true,
+        bool includeSignatureFields = true)
     {
         ArgumentNullException.ThrowIfNull(sizeGroupService);
         this.sizeGroupService = sizeGroupService;
         this.folderPriorityService = folderPriorityService ?? new FolderPriorityService();
+        this.includeExifFields = includeExifFields;
+        this.includeSignatureFields = includeSignatureFields;
     }
 
     public void Log(FileInfo file, MediaFileAnalysis analysis)
@@ -34,21 +39,38 @@ public sealed class BackupFileDiagnosticFormatter
             ? $"Skip:{analysis.SkipReason}"
             : "Include";
 
-        return string.Join(Separator,
+        List<string> fields = new()
+        {
             $"File={Escape(file.FullName)}",
             $"SizeBytes={fileSize?.ToString() ?? EmptyValue}",
             $"SizeGroup={Escape(sizeGroup)}",
-            $"Kind={analysis.Kind}",
-            $"Detection={analysis.DetectionSource}",
-            $"DetectedExtension={Escape(analysis.DetectedExtension)}",
-            $"CameraEvidence={analysis.CameraEvidence}",
-            $"HasExif={analysis.HasCameraExif}",
-            $"CameraMake={Escape(analysis.CameraMake)}",
-            $"CameraModel={Escape(analysis.CameraModel)}",
+            $"Kind={analysis.Kind}"
+        };
+
+        if (includeSignatureFields)
+        {
+            fields.Add($"Detection={analysis.DetectionSource}");
+            fields.Add($"DetectedExtension={Escape(analysis.DetectedExtension)}");
+        }
+
+        fields.Add($"CameraEvidence={analysis.CameraEvidence}");
+
+        if (includeExifFields)
+        {
+            fields.Add($"HasExif={analysis.HasCameraExif}");
+            fields.Add($"CameraMake={Escape(analysis.CameraMake)}");
+            fields.Add($"CameraModel={Escape(analysis.CameraModel)}");
+        }
+
+        fields.AddRange(new[]
+        {
             $"CameraPattern={Escape(analysis.MatchedCameraFileNamePattern)}",
             $"BlacklistPattern={Escape(analysis.MatchedVideoBlacklistPattern)}",
             $"FolderPriority={folderPriorityService.GetPriority(file)}",
-            $"Decision={Escape(decision)}");
+            $"Decision={Escape(decision)}"
+        });
+
+        return string.Join(Separator, fields);
     }
 
     private static long? TryGetFileSize(FileInfo file)

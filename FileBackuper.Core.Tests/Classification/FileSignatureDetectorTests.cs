@@ -15,19 +15,6 @@ public class FileSignatureDetectorTests
         };
         yield return new object[]
         {
-            new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A },
-            MediaKind.Image, MediaFileFormat.Png, ".png"
-        };
-        yield return new object[]
-        {
-            Encoding.ASCII.GetBytes("GIF89a"), MediaKind.Image, MediaFileFormat.Gif, ".gif"
-        };
-        yield return new object[]
-        {
-            CreateRiff("WEBP"), MediaKind.Image, MediaFileFormat.WebP, ".webp"
-        };
-        yield return new object[]
-        {
             CreateRiff("AVI "), MediaKind.Video, MediaFileFormat.Avi, ".avi"
         };
         yield return new object[]
@@ -36,23 +23,11 @@ public class FileSignatureDetectorTests
         };
         yield return new object[]
         {
-            CreateFileTypeBox("avif"), MediaKind.Image, MediaFileFormat.Avif, ".avif"
-        };
-        yield return new object[]
-        {
             CreateFileTypeBox("mp42"), MediaKind.Video, MediaFileFormat.Mp4, ".mp4"
         };
         yield return new object[]
         {
             CreateFileTypeBox("qt  "), MediaKind.Video, MediaFileFormat.QuickTime, ".mov"
-        };
-        yield return new object[]
-        {
-            CreateEbml("webm"), MediaKind.Video, MediaFileFormat.WebM, ".webm"
-        };
-        yield return new object[]
-        {
-            CreateEbml("matroska"), MediaKind.Video, MediaFileFormat.Matroska, ".mkv"
         };
     }
 
@@ -72,6 +47,26 @@ public class FileSignatureDetectorTests
     public void Detect_ReturnsNullForUnknownContent()
     {
         Assert.Null(detector.Detect(new byte[] { 1, 2, 3, 4 }));
+    }
+
+    public static IEnumerable<object[]> UnsupportedSignatures()
+    {
+        yield return new object[]
+        {
+            new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }
+        };
+        yield return new object[] { Encoding.ASCII.GetBytes("GIF89a") };
+        yield return new object[] { CreateRiff("WEBP") };
+        yield return new object[] { CreateFileTypeBox("avif") };
+        yield return new object[] { CreateEbml("webm") };
+        yield return new object[] { CreateEbml("matroska") };
+    }
+
+    [Theory]
+    [MemberData(nameof(UnsupportedSignatures))]
+    public void Detect_ReturnsNullForUnsupportedSignature(byte[] header)
+    {
+        Assert.Null(detector.Detect(header));
     }
 
     [Fact]

@@ -42,7 +42,9 @@ internal class BackupApplication
                 enableExifAnalysis: options.EnableExifAnalysis);
             FileSizeGroupService fileSizeGroupService = new(options.FileSizeGroups);
             BackupFilePriorityService priorityService = new(fileSizeGroupService);
-            BackupFileDiagnosticFormatter diagnosticFormatter = new(fileSizeGroupService);
+            BackupFileDiagnosticFormatter diagnosticFormatter = new(fileSizeGroupService,
+                includeExifFields: options.EnableExifAnalysis,
+                includeSignatureFields: options.IncludeBrowserCaches);
             string instanceId = Guid.NewGuid().ToString("N");
             using BackupJobManager jobManager = new(stateDirectory, destinationDirectory, manifestStore, instanceId,
                 skipDirectoryNames: options.SkipDirectoryNames,
