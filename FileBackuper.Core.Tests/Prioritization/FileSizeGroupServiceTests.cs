@@ -11,11 +11,11 @@ public class FileSizeGroupServiceTests
     });
 
     [Theory]
-    [InlineData(204_800, "UpTo200KB")]
-    [InlineData(204_801, "UpTo500KB")]
-    [InlineData(1_073_741_824, "UpTo1GB")]
-    [InlineData(1_073_741_825, "UpTo1.5GB")]
-    [InlineData(4_000_000_000, "UpTo4GB")]
+    [InlineData(204_800, "From10KBTo200KB")]
+    [InlineData(204_801, "From200KBTo500KB")]
+    [InlineData(1_073_741_824, "From900MBTo1GB")]
+    [InlineData(1_073_741_825, "From1GBTo1.2GB")]
+    [InlineData(4_294_967_296, "From3.5GBTo4GB")]
     public void DefaultGroups_AssignBoundarySizes(long fileSize, string expectedName)
     {
         FileSizeGroupService defaultService = new(new BackupOptions().FileSizeGroups);
