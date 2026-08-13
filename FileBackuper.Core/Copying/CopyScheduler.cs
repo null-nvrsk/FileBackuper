@@ -92,6 +92,7 @@ public sealed class CopyScheduler
         {
             copyingStarted = true;
             copyStopwatch.Start();
+            Stat.StartCopying();
             BackupLog.Info("Начало копирования");
             BackupLog.Flush();
         }

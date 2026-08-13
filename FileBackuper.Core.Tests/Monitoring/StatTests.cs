@@ -2,6 +2,19 @@ namespace FileBackuper.Core.Tests;
 
 public class StatTests
 {
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(9, 0)]
+    [InlineData(10, 1)]
+    [InlineData(29, 2)]
+    [InlineData(59, 5)]
+    [InlineData(60, 6)]
+    [InlineData(90, 6)]
+    public void WarmupProgress_AddsOneDotPerTenSeconds(int elapsedSeconds, int expectedDots)
+    {
+        Assert.Equal(expectedDots, Stat.GetWarmupDotCount(TimeSpan.FromSeconds(elapsedSeconds)));
+    }
+
     [Fact]
     public void RegisteredFilesAndCompletedFiles_UpdateCommonProgress()
     {
