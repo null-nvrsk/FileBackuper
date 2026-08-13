@@ -1,9 +1,37 @@
 using FileBackuper.Core;
+using System.Diagnostics;
 
 namespace FileBackuper.Core.Tests.Scanning;
 
 public class FileScannerTests
 {
+    [Theory]
+    [InlineData(TraceLevel.Info, false)]
+    [InlineData(TraceLevel.Verbose, true)]
+    public void Scan_LogsFoundFilesOnlyInVerboseMode(TraceLevel level, bool shouldLogPath)
+    {
+        using TestWorkspace workspace = new();
+        FileInfo expectedFile = workspace.CreateFile("photo.jpg", 10_000);
+        using StringWriter output = new();
+        using TextWriterTraceListener listener = new(output);
+        Trace.Listeners.Add(listener);
+        BackupLog.Configure(level);
+        CloudFileState.Configure(CloudFileMode.FastSkip);
+
+        try
+        {
+            FileScanner.Scan(workspace.RootDirectory, CancellationToken.None);
+            Trace.Flush();
+
+            Assert.Equal(shouldLogPath, output.ToString().Contains(expectedFile.FullName));
+        }
+        finally
+        {
+            Trace.Listeners.Remove(listener);
+            BackupLog.Configure(TraceLevel.Info);
+        }
+    }
+
     [Fact]
     public void Scan_FindsSupportedFileInNestedDirectory()
     {

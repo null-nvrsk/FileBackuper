@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace FileBackuper.Core;
 
 public static class FileScanner
@@ -86,7 +84,7 @@ public static class FileScanner
                     }
 
                     result.Add(file);
-                    Trace.WriteLine(file.FullName);
+                    BackupLog.Verbose($"Найден файл: {file.FullName}");
                 }
 
                 foreach (DirectoryInfo subdirectory in directory.EnumerateDirectories("*", enumerationOptions))
