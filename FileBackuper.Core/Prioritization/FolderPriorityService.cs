@@ -27,20 +27,20 @@ public sealed class FolderPriorityService
         ArgumentNullException.ThrowIfNull(file);
         string? directoryName = file.DirectoryName;
         if (string.IsNullOrWhiteSpace(directoryName))
-            return 20;
+            return 3;
 
         string[] segments = directoryName.Split(
             new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (segments.Any(CameraFolderNames.Contains))
-            return 40;
+            return 5;
         if (segments.Any(UserFolderNames.Contains))
-            return 30;
+            return 4;
         if (segments.Any(LowPriorityFolderNames.Contains))
-            return 10;
+            return 2;
         if (segments.Any(LastPriorityFolderNames.Contains))
-            return 0;
-        return 20;
+            return 1;
+        return 3;
     }
 }

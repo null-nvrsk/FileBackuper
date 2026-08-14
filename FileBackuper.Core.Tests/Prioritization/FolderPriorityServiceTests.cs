@@ -5,12 +5,12 @@ namespace FileBackuper.Core.Tests.Prioritization;
 public class FolderPriorityServiceTests
 {
     [Theory]
-    [InlineData("DCIM", 40)]
-    [InlineData("Camera", 40)]
-    [InlineData("Documents", 30)]
-    [InlineData("Other", 20)]
-    [InlineData("Temp", 10)]
-    [InlineData("Downloads", 0)]
+    [InlineData("DCIM", 5)]
+    [InlineData("Camera", 5)]
+    [InlineData("Documents", 4)]
+    [InlineData("Other", 3)]
+    [InlineData("Temp", 2)]
+    [InlineData("Downloads", 1)]
     public void GetPriority_ReturnsPriorityForDirectorySegment(string directoryName, int expectedPriority)
     {
         string root = Path.GetPathRoot(Environment.CurrentDirectory)!;

@@ -50,6 +50,16 @@ public sealed class BackupFilePriorityService
         return sizeGroupService.GetGroupIndex(candidate.Length);
     }
 
+    public string GetPriorityCode(BackupFileCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        int sizeGroupNumber = GetSizeGroupIndex(candidate) + 1;
+        char detectionType = candidate.Analysis.DetectionSource == MediaDetectionSource.Signature ? 'S' : 'E';
+        char cameraType = candidate.Analysis.CameraEvidence == CameraEvidence.None ? 'O' : 'C';
+        int folderPriority = folderPriorityService.GetPriority(candidate.File);
+        return $"[{sizeGroupNumber:D2}{detectionType}{cameraType}{folderPriority}]";
+    }
+
     private PriorityKey CreateKey(BackupFileCandidate candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);

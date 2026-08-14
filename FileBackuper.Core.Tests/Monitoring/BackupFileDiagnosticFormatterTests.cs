@@ -35,7 +35,7 @@ public class BackupFileDiagnosticFormatterTests
         Assert.Contains("SizeGroup=Small | Kind=Image | Detection=Extension", result);
         Assert.Contains("CameraEvidence=PatternAndExif | HasExif=True", result);
         Assert.Contains("CameraMake=Canon | CameraModel=EOS R", result);
-        Assert.Contains("FolderPriority=40 | Decision=Include", result);
+        Assert.Contains("FolderPriority=5 | Decision=Include", result);
     }
 
     [Fact]

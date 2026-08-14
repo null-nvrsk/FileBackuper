@@ -134,7 +134,8 @@ public sealed class CopyScheduler
             Stat.RecalculateEstimatedTime();
             Complete(scheduledFile);
             copiedFileCount++;
-            BackupLog.Raw($"({copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}) Скопирован файл №{copiedFileCount:N0} = " +
+            BackupLog.Raw($"{priorityService.GetPriorityCode(scheduledFile.Candidate)} " +
+                $"({copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}) Скопирован файл №{copiedFileCount:N0} = " +
                 $"{scheduledFile.File.FullName} — размер {FormatSize(scheduledFile.Length)}");
         }
         catch (OperationCanceledException)

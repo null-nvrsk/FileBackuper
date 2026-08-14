@@ -82,6 +82,20 @@ public class BackupFilePriorityServiceTests
         Assert.Equal(new[] { first, second }, ordered);
     }
 
+    [Theory]
+    [InlineData(20_000, MediaDetectionSource.Extension, CameraEvidence.Pattern, "DCIM", "[01EC5]")]
+    [InlineData(200_000, MediaDetectionSource.Signature, CameraEvidence.None, "DCIM", "[02SO5]")]
+    public void GetPriorityCode_FormatsAllPriorityLevels(long size, MediaDetectionSource detectionSource,
+        CameraEvidence cameraEvidence, string directoryName, string expected)
+    {
+        using TestWorkspace workspace = new();
+        BackupFileCandidate candidate = CreateCandidate(
+            workspace.CreateFile(Path.Combine(directoryName, "file.jpg"), checked((int)size)),
+            detectionSource, cameraEvidence);
+
+        Assert.Equal(expected, service.GetPriorityCode(candidate));
+    }
+
     private static BackupFileCandidate CreateCandidate(FileInfo file, MediaDetectionSource detectionSource,
         CameraEvidence cameraEvidence, MediaKind kind = MediaKind.Image) =>
         new(file, new MediaFileAnalysis
