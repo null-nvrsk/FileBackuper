@@ -6,7 +6,6 @@ namespace FileBackuper.Core;
 /// </summary>
 public sealed class CopyScheduler
 {
-    private static readonly string ProgressSeparator = new('-', 130);
     private readonly object syncRoot = new();
     private readonly List<JobQueue> queues = new();
     private readonly JobManifestStore manifestStore;
@@ -14,10 +13,6 @@ public sealed class CopyScheduler
     private readonly System.Diagnostics.Stopwatch copyStopwatch = new();
     private bool copyingStarted;
     private int copiedFileCount;
-    private long progressIntervalCopiedBytes;
-    private TimeSpan progressIntervalCopyDuration;
-    private long totalCopiedBytes;
-    private TimeSpan totalCopyDuration;
     private bool finalStatisticsLogged;
 
     public CopyScheduler(JobManifestStore manifestStore, BackupFilePriorityService priorityService)
@@ -135,19 +130,12 @@ public sealed class CopyScheduler
                 return true;
             }
 
-            Stat.AddFileToCompletedStat(scheduledFile.Candidate);
+            Stat.AddFileToCompletedStat(scheduledFile.Candidate, fileCopyStopwatch.Elapsed);
             Stat.RecalculateEstimatedTime();
             Complete(scheduledFile);
             copiedFileCount++;
-            progressIntervalCopiedBytes += scheduledFile.Length;
-            progressIntervalCopyDuration += fileCopyStopwatch.Elapsed;
-            totalCopiedBytes += scheduledFile.Length;
-            totalCopyDuration += fileCopyStopwatch.Elapsed;
             BackupLog.Raw($"({copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}) Скопирован файл №{copiedFileCount:N0} = " +
                 $"{scheduledFile.File.FullName} — размер {FormatSize(scheduledFile.Length)}");
-
-            if (copiedFileCount % 50 == 0)
-                LogProgress();
         }
         catch (OperationCanceledException)
         {
@@ -176,24 +164,13 @@ public sealed class CopyScheduler
 
     public void LogFinalStatistics()
     {
-        if (finalStatisticsLogged || !copyingStarted)
+        if (finalStatisticsLogged)
             return;
 
         finalStatisticsLogged = true;
-        copyStopwatch.Stop();
-        double seconds = totalCopyDuration.TotalSeconds;
-        double megabytesPerSecond = seconds > 0
-            ? totalCopiedBytes / 1024d / 1024d / seconds
-            : 0;
-        double gigabytesPerMinute = seconds > 0
-            ? totalCopiedBytes / 1024d / 1024d / 1024d / seconds * 60
-            : 0;
-
-        BackupLog.Raw($"[{Stat.GetCurrentScanTimeAsString()}] Время копирования: " +
-            $"{copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
-        BackupLog.Raw($"[{Stat.GetCurrentScanTimeAsString()}] Скорость: {megabytesPerSecond:N2} МБ/с");
-        BackupLog.Raw($"[{Stat.GetCurrentScanTimeAsString()}]           {gigabytesPerMinute:N2} ГБ/мин");
-        BackupLog.Flush();
+        if (copyingStarted)
+            copyStopwatch.Stop();
+        Stat.LogFinalProgress();
     }
 
     public bool TryTakeNext(out ScheduledFile scheduledFile)
@@ -250,27 +227,6 @@ public sealed class CopyScheduler
     {
         lock (syncRoot)
             queues.RemoveAll(queue => queue.Job == job);
-    }
-
-    private void LogProgress()
-    {
-        StatSnapshot snapshot = Stat.GetSnapshot();
-        double seconds = progressIntervalCopyDuration.TotalSeconds;
-        double megabytesPerSecond = seconds > 0
-            ? progressIntervalCopiedBytes / 1024d / 1024d / seconds
-            : 0;
-        double gigabytesPerMinute = seconds > 0
-            ? progressIntervalCopiedBytes / 1024d / 1024d / 1024d / seconds * 60
-            : 0;
-        BackupLog.Raw(ProgressSeparator);
-        BackupLog.Raw($"[{Stat.GetCurrentScanTimeAsString()}]({copyStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}) " +
-            $"{snapshot.Percentage}% [Скопировано {FormatSize(snapshot.CompletedSize)} из {FormatSize(snapshot.TotalSize)}]" +
-            $"[Скопировано файлов: {snapshot.CompletedFileCount:N0} из {snapshot.TotalFileCount:N0}] " +
-            $"[Скорость: {megabytesPerSecond:N2} МБ/с | {gigabytesPerMinute:N2} ГБ/мин]");
-        BackupLog.Raw(ProgressSeparator);
-        BackupLog.Flush();
-        progressIntervalCopiedBytes = 0;
-        progressIntervalCopyDuration = TimeSpan.Zero;
     }
 
     private static string FormatSize(long bytes)

@@ -41,6 +41,7 @@ internal class BackupApplication
                 options.MaxFileSizeBytes, cameraFileNamePatterns, videoBlacklistPatterns,
                 enableExifAnalysis: options.EnableExifAnalysis);
             FileSizeGroupService fileSizeGroupService = new(options.FileSizeGroups);
+            Stat.ConfigureSizeGroups(options.FileSizeGroups);
             BackupFilePriorityService priorityService = new(fileSizeGroupService);
             BackupFileDiagnosticFormatter diagnosticFormatter = new(fileSizeGroupService,
                 includeExifFields: options.EnableExifAnalysis,

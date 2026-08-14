@@ -8,10 +8,13 @@ public class StatFile
     private string rootDirectory = Path.GetPathRoot(AppContext.BaseDirectory)
         ?? throw new InvalidOperationException("Не удалось определить диск приложения.");
 
+    public bool IsRootDirectoryConfigured { get; private set; }
+
     public void SetRootDirectory(string destinationDirectory)
     {
         rootDirectory = Path.GetPathRoot(destinationDirectory)
             ?? throw new ArgumentException("Не удалось определить диск назначения.", nameof(destinationDirectory));
+        IsRootDirectoryConfigured = true;
     }
 
     public void SetDrivePrefix(string value)
@@ -39,7 +42,7 @@ public class StatFile
     }
 
     public string GenerateNewFile(int percent, GroupType group, long fileSize, TimeSpan? imageEndTime,
-        TimeSpan fullEndTime, TimeSpan scanTime)
+        TimeSpan fullEndTime, TimeSpan scanTime, string content)
     {
         if (filename != string.Empty)
         {
@@ -63,14 +66,13 @@ public class StatFile
         statusSuffix = percentPart + groupPart + sizePart + "-" + imageTimePart + "-" +
             fullTimePart + "-" + scanTimePart + ".tmp";
         filename = Path.Combine(rootDirectory, drivePrefix + statusSuffix);
-        try { File.Create(filename).Close(); }
+        try { File.WriteAllText(filename, content); }
         catch (Exception exception)
         {
             BackupLog.Warning($"Не удалось создать файл состояния {filename}. " +
                 BackupLog.GetExceptionDescription(exception));
         }
 
-        Console.WriteLine(filename);
         return filename;
     }
 
