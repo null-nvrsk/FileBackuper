@@ -210,7 +210,7 @@ public sealed class CopyScheduler
 
     private void Skip(ScheduledFile scheduledFile, string reason)
     {
-        Stat.RemoveFileFromTotalStat(scheduledFile.File, scheduledFile.Length);
+        Stat.RemoveFileFromTotalStat(scheduledFile.Candidate);
         scheduledFile.Job.MarkFileSkipped(scheduledFile.Candidate, scheduledFile.Length);
         lock (syncRoot)
         {

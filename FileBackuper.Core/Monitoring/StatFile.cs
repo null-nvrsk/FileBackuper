@@ -55,7 +55,9 @@ public class StatFile
         }
 
         string percentPart = percent.ToString("00");
-        string groupPart = group == GroupType.Image ? "a" : "b";
+        string groupPart = string.Concat(
+            group.HasFlag(GroupType.Image) ? "a" : string.Empty,
+            group.HasFlag(GroupType.Video) ? "b" : string.Empty);
         double fileSizeMb = (double)fileSize / 1024 / 1024;
         string sizePart = fileSizeMb <= 0.2 ? "0.2" :
             fileSizeMb <= 10 ? fileSizeMb.ToString("0.0").Replace(',', '.') : fileSizeMb.ToString("0");

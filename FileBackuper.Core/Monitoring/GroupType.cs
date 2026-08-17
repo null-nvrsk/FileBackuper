@@ -6,9 +6,11 @@ using System.Threading.Tasks;
 
 namespace FileBackuper.Core
 {
+    [Flags]
     public enum GroupType
     {
-        Image,
-        Video
+        None = 0,
+        Image = 1,
+        Video = 2
     }
 }

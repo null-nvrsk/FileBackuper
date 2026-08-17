@@ -40,6 +40,39 @@ public class StatTests
     }
 
     [Fact]
+    public void CurrentGroupType_ReflectsStartedGroupsWithFilesRemaining()
+    {
+        using TestWorkspace workspace = new();
+        BackupFileCandidate[] images =
+        {
+            CreateCandidate(workspace.CreateFile("first.jpg", 10)),
+            CreateCandidate(workspace.CreateFile("second.jpg", 10))
+        };
+        BackupFileCandidate[] videos =
+        {
+            CreateCandidate(workspace.CreateFile("first.mp4", 10), MediaKind.Video),
+            CreateCandidate(workspace.CreateFile("second.mp4", 10), MediaKind.Video)
+        };
+        Stat.Reset();
+        Stat.AddFilesToTotalStat(images.Concat(videos));
+
+        Assert.Equal(GroupType.None, Stat.GetCurrentGroupType());
+
+        Stat.AddFileToCompletedStat(images[0]);
+        Assert.Equal(GroupType.Image, Stat.GetCurrentGroupType());
+
+        Stat.AddFileToCompletedStat(videos[0]);
+        Assert.Equal(GroupType.Image | GroupType.Video, Stat.GetCurrentGroupType());
+
+        Stat.AddFileToCompletedStat(images[1]);
+        Assert.Equal(GroupType.Video, Stat.GetCurrentGroupType());
+
+        Stat.AddFileToCompletedStat(videos[1]);
+        Assert.Equal(GroupType.None, Stat.GetCurrentGroupType());
+        Stat.Reset();
+    }
+
+    [Fact]
     public void ProgressReport_WhenCopyingIsPaused_StartsWithPauseMarker()
     {
         Stat.Reset();
@@ -149,9 +182,10 @@ public class StatTests
         Stat.Reset();
     }
 
-    private static BackupFileCandidate CreateCandidate(FileInfo file) => new(file, new MediaFileAnalysis
+    private static BackupFileCandidate CreateCandidate(FileInfo file, MediaKind kind = MediaKind.Image) =>
+        new(file, new MediaFileAnalysis
     {
-        Kind = MediaKind.Image,
+        Kind = kind,
         DetectionSource = MediaDetectionSource.Extension
     });
 }

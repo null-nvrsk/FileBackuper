@@ -22,6 +22,10 @@ public static class Stat
     private static long completeImageSize;
     private static long totalVideoSize;
     private static long completeVideoSize;
+    private static int totalImageCount;
+    private static int completeImageCount;
+    private static int totalVideoCount;
+    private static int completeVideoCount;
     private static long currentFileSize;
     private static Timer? progressTimer;
     private static int progressTimerGeneration;
@@ -82,6 +86,10 @@ public static class Stat
             completeImageSize = 0;
             totalVideoSize = 0;
             completeVideoSize = 0;
+            totalImageCount = 0;
+            completeImageCount = 0;
+            totalVideoCount = 0;
+            completeVideoCount = 0;
             currentFileSize = 0;
             Array.Clear(milestoneTotalSizes, 0, milestoneTotalSizes.Length);
             Array.Clear(milestoneCompletedSizes, 0, milestoneCompletedSizes.Length);
@@ -159,8 +167,7 @@ public static class Stat
 
             string report = BuildProgressReportCore(now, includeTimeBlock: true);
             if (statFile.IsRootDirectoryConfigured)
-                statFile.GenerateNewFile(GetPercentageOfCompletion(), GetCurrentGroupType(), currentFileSize,
-                    imagesEta, totalEta, GetCurrentScanTime(), report);
+                UpdateStatusFile(report);
             WriteProgressToConsole(report);
         }
     }
@@ -210,8 +217,7 @@ public static class Stat
             }
             string report = BuildProgressReportCore(now, includeTimeBlock: true);
             if (statFile.IsRootDirectoryConfigured)
-                statFile.GenerateNewFile(GetPercentageOfCompletion(), GetCurrentGroupType(), currentFileSize,
-                    imagesEta, totalEta, GetCurrentScanTime(), report);
+                UpdateStatusFile(report);
             WriteProgressToConsole(report);
             if (copyElapsed >= LogUpdateInterval &&
                 (lastLoggedAt == default || now - lastLoggedAt >= LogUpdateInterval))
@@ -245,7 +251,14 @@ public static class Stat
     public static GroupType GetCurrentGroupType()
     {
         lock (syncRoot)
-            return completeVideoSize == 0 ? GroupType.Image : GroupType.Video;
+        {
+            GroupType result = GroupType.None;
+            if (completeImageCount > 0 && completeImageCount < totalImageCount)
+                result |= GroupType.Image;
+            if (completeVideoCount > 0 && completeVideoCount < totalVideoCount)
+                result |= GroupType.Video;
+            return result;
+        }
     }
 
     public static void AddFileToTolalStat(FileInfo file)
@@ -280,8 +293,16 @@ public static class Stat
                 totalSize += candidate.Length;
                 AddToMilestones(milestoneTotalSizes, candidate.Length);
                 FindSizeGroup(candidate.Length)?.AddTotal(candidate.Length);
-                if (candidate.Analysis.Kind == MediaKind.Image) totalImageSize += candidate.Length;
-                if (candidate.Analysis.Kind == MediaKind.Video) totalVideoSize += candidate.Length;
+                if (candidate.Analysis.Kind == MediaKind.Image)
+                {
+                    totalImageCount++;
+                    totalImageSize += candidate.Length;
+                }
+                if (candidate.Analysis.Kind == MediaKind.Video)
+                {
+                    totalVideoCount++;
+                    totalVideoSize += candidate.Length;
+                }
             }
         }
     }
@@ -296,8 +317,16 @@ public static class Stat
             completeSize += file.Length;
             AddToMilestones(milestoneCompletedSizes, file.Length);
             FindSizeGroup(file.Length)?.AddCompleted(file.Length, copyDuration);
-            if (MediaFileClassifier.IsImage(file)) completeImageSize += file.Length;
-            if (MediaFileClassifier.IsVideo(file)) completeVideoSize += file.Length;
+            if (MediaFileClassifier.IsImage(file))
+            {
+                completeImageCount++;
+                completeImageSize += file.Length;
+            }
+            if (MediaFileClassifier.IsVideo(file))
+            {
+                completeVideoCount++;
+                completeVideoSize += file.Length;
+            }
         }
     }
 
@@ -311,8 +340,16 @@ public static class Stat
             completeSize += candidate.Length;
             AddToMilestones(milestoneCompletedSizes, candidate.Length);
             FindSizeGroup(candidate.Length)?.AddCompleted(candidate.Length, copyDuration);
-            if (candidate.Analysis.Kind == MediaKind.Image) completeImageSize += candidate.Length;
-            if (candidate.Analysis.Kind == MediaKind.Video) completeVideoSize += candidate.Length;
+            if (candidate.Analysis.Kind == MediaKind.Image)
+            {
+                completeImageCount++;
+                completeImageSize += candidate.Length;
+            }
+            if (candidate.Analysis.Kind == MediaKind.Video)
+            {
+                completeVideoCount++;
+                completeVideoSize += candidate.Length;
+            }
         }
     }
 
@@ -329,9 +366,37 @@ public static class Stat
             RemoveFromMilestones(milestoneTotalSizes, fileSize);
             FindSizeGroup(fileSize)?.RemoveTotal(fileSize);
             if (MediaFileClassifier.IsImage(file))
+            {
+                totalImageCount = Math.Max(0, totalImageCount - 1);
                 totalImageSize = Math.Max(0, totalImageSize - fileSize);
+            }
             if (MediaFileClassifier.IsVideo(file))
+            {
+                totalVideoCount = Math.Max(0, totalVideoCount - 1);
                 totalVideoSize = Math.Max(0, totalVideoSize - fileSize);
+            }
+        }
+    }
+
+    public static void RemoveFileFromTotalStat(BackupFileCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        lock (syncRoot)
+        {
+            totalCount = Math.Max(0, totalCount - 1);
+            totalSize = Math.Max(0, totalSize - candidate.Length);
+            RemoveFromMilestones(milestoneTotalSizes, candidate.Length);
+            FindSizeGroup(candidate.Length)?.RemoveTotal(candidate.Length);
+            if (candidate.Analysis.Kind == MediaKind.Image)
+            {
+                totalImageCount = Math.Max(0, totalImageCount - 1);
+                totalImageSize = Math.Max(0, totalImageSize - candidate.Length);
+            }
+            if (candidate.Analysis.Kind == MediaKind.Video)
+            {
+                totalVideoCount = Math.Max(0, totalVideoCount - 1);
+                totalVideoSize = Math.Max(0, totalVideoSize - candidate.Length);
+            }
         }
     }
 
@@ -393,8 +458,29 @@ public static class Stat
         totalSize += file.Length;
         AddToMilestones(milestoneTotalSizes, file.Length);
         FindSizeGroup(file.Length)?.AddTotal(file.Length);
-        if (MediaFileClassifier.IsImage(file)) totalImageSize += file.Length;
-        if (MediaFileClassifier.IsVideo(file)) totalVideoSize += file.Length;
+        if (MediaFileClassifier.IsImage(file))
+        {
+            totalImageCount++;
+            totalImageSize += file.Length;
+        }
+        if (MediaFileClassifier.IsVideo(file))
+        {
+            totalVideoCount++;
+            totalVideoSize += file.Length;
+        }
+    }
+
+    private static void UpdateStatusFile(string report)
+    {
+        GroupType group = GetCurrentGroupType();
+        if (group == GroupType.None)
+        {
+            statFile.CloseFile();
+            return;
+        }
+
+        statFile.GenerateNewFile(GetPercentageOfCompletion(), group, currentFileSize,
+            imagesEta, totalEta, GetCurrentScanTime(), report);
     }
 
     private static SizeGroupStat? FindSizeGroup(long fileSize) =>
