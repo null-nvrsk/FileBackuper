@@ -2,6 +2,14 @@ namespace FileBackuper.Core;
 
 public sealed class FolderPriorityService
 {
+    private static readonly IReadOnlySet<string> PrivateFolderNames = new HashSet<string>(
+        new[]
+        {
+            "private", "intimate", "18+", "adult", "secret", "hidden", "sex", "nude", "личное",
+            "личные", "приват", "взрослых", "секс", "секрет", "скрыт", "открывать", "мои фот"
+        },
+        StringComparer.OrdinalIgnoreCase);
+
     private static readonly IReadOnlySet<string> CameraFolderNames = new HashSet<string>(
         new[]
         {
@@ -33,7 +41,9 @@ public sealed class FolderPriorityService
             new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        if (segments.Any(CameraFolderNames.Contains))
+        if (segments.Any(segment => ContainsFolderName(segment, PrivateFolderNames)))
+            return 6;
+        if (segments.Any(segment => ContainsFolderName(segment, CameraFolderNames)))
             return 5;
         if (segments.Any(UserFolderNames.Contains))
             return 4;
@@ -43,4 +53,7 @@ public sealed class FolderPriorityService
             return 1;
         return 3;
     }
+
+    private static bool ContainsFolderName(string segment, IReadOnlySet<string> folderNames) =>
+        folderNames.Any(folderName => segment.Contains(folderName, StringComparison.OrdinalIgnoreCase));
 }
