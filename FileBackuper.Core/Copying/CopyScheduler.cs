@@ -241,7 +241,7 @@ public sealed class CopyScheduler
             unitIndex++;
         }
 
-        return $"{size:N2} {units[unitIndex]}";
+        return $"{size:N1} {units[unitIndex]}";
     }
 
     private static bool CanReadSourceFile(FileInfo file)

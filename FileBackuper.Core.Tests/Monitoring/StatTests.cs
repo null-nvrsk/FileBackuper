@@ -31,9 +31,9 @@ public class StatTests
     }
 
     [Theory]
-    [InlineData(0, "[--------------------]")]
-    [InlineData(29, "[+++++---------------]")]
-    [InlineData(100, "[++++++++++++++++++++]")]
+    [InlineData(0, "[----------]")]
+    [InlineData(29, "[++--------]")]
+    [InlineData(100, "[++++++++++]")]
     public void ProgressBar_UsesFivePercentBlocks(int percentage, string expected)
     {
         Assert.Equal(expected, Stat.BuildProgressBar(percentage));
@@ -86,7 +86,7 @@ public class StatTests
             Stat.BuildProgressReport(DateTime.Now.AddMinutes(1)));
 
         Stat.SetPaused(false);
-        Assert.Equal(new string('-', 130),
+        Assert.Equal(new string('-', 120),
             Stat.BuildProgressReport().Split(Environment.NewLine)[0]);
         Stat.Reset();
     }
@@ -114,15 +114,15 @@ public class StatTests
         string report = Stat.BuildProgressReport();
         string[] reportLines = report.Split(Environment.NewLine);
 
-        Assert.Equal(new string('-', 130), reportLines[0]);
-        Assert.Equal(new string('-', 130), reportLines[^1]);
-        Assert.Contains("[++++++++++++++++++++] 100% [TestGroup]", report);
+        Assert.Equal(new string('-', 120), reportLines[0]);
+        Assert.Equal(new string('-', 120), reportLines[^1]);
+        Assert.Contains("[++++++++++] 100% [TestGroup]", report);
         Assert.Matches(@"\[[^\]]+ / [^\]]+\] \[1 / 1\]", report);
         Assert.DoesNotContain("Группа размера", report);
-        Assert.Contains("100% [время копирования", report);
-        Assert.Contains("[Скопировано", report);
-        Assert.Contains("[Файлов: 1 из 1]", report);
-        Assert.Contains("[Скорость: —]", report);
+        Assert.Contains("100% (время копирования", report);
+        Assert.Contains("Скопировано:", report);
+        Assert.Contains("Файлов: 1 из 1", report);
+        Assert.Contains("Скорость: —", report);
         Assert.Contains("Блок времени:", report);
         Assert.Matches(@"примерное время копирования до 100 МБ\s+: выполнено", report);
         string[] timeRows = report.Split(Environment.NewLine)
@@ -131,8 +131,8 @@ public class StatTests
         Assert.Single(timeRows.Select(line => line.IndexOf(" : ", StringComparison.Ordinal)).Distinct());
         string logBlock = Stat.BuildLogProgressBlock(DateTime.Now);
         string[] logLines = logBlock.Split(Environment.NewLine);
-        Assert.Equal(new string('-', 130), logLines[0]);
-        Assert.Equal(new string('-', 130), logLines[^1]);
+        Assert.Equal(new string('-', 120), logLines[0]);
+        Assert.Equal(new string('-', 120), logLines[^1]);
         Assert.DoesNotContain("Блок времени", logBlock);
         Assert.DoesNotContain("примерное время", logBlock);
         Stat.Reset();
@@ -177,8 +177,9 @@ public class StatTests
         Assert.Contains("время 00:00:02", plannedLine);
         Assert.DoesNotMatch(@"сред\. скорость\s+0[,.]00 МБ/с", plannedLine);
         Assert.Matches(@": \d{2}:\d{2}:\d{2} \(через", totalEtaLine);
-        Assert.Matches(@"\d+% \[время копирования \d{2}:\d{2}:\d{2}\].*" +
-            @"\[Скорость: .+ МБ/с / .+ ГБ/мин\]", report);
+        Assert.Matches(@"\d+% \(время копирования \d{2}:\d{2}:\d{2}\)\r?\n" +
+            @"Скопировано: .+\r?\nФайлов: .+\r?\n" +
+            @"Скорость: .+ МБ/с / .+ ГБ/мин", report);
         Stat.Reset();
     }
 

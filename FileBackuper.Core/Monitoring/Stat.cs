@@ -5,7 +5,7 @@ public static class Stat
     private static readonly TimeSpan EstimateWarmupDuration = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan ProgressUpdateInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan LogUpdateInterval = TimeSpan.FromMinutes(1);
-    private static readonly string LogSeparator = new('-', 130);
+    private static readonly string LogSeparator = new('-', 120);
     private static readonly object syncRoot = new();
     private static DateTime startTime;
     private static DateTime copyStartTime;
@@ -539,10 +539,10 @@ public static class Stat
             ? $"{FormatSpeed(averageBytesPerSecond)} / {FormatGigabytesPerMinute(averageBytesPerSecond)}"
             : "—";
         lines.Add(string.Empty);
-        lines.Add($"{totalPercentage}% [время копирования {FormatDuration(copyElapsed)}]" +
-            $"[Скопировано {FormatSize(completeSize)} из {FormatSize(totalSize)}]" +
-            $"[Файлов: {completeCount:N0} из {totalCount:N0}] " +
-            $"[Скорость: {totalSpeed}]");
+        lines.Add($"{totalPercentage}% (время копирования {FormatDuration(copyElapsed)})");
+        lines.Add($"Скопировано: {FormatSize(completeSize)} из {FormatSize(totalSize)}");
+        lines.Add($"Файлов: {completeCount:N0} из {totalCount:N0}");
+        lines.Add($"Скорость: {totalSpeed}");
         if (!includeTimeBlock)
             return WrapReport(lines);
 
@@ -651,8 +651,8 @@ public static class Stat
 
     internal static string BuildProgressBar(int percentage)
     {
-        int completedBlocks = Math.Clamp(percentage / 5, 0, 20);
-        return $"[{new string('+', completedBlocks)}{new string('-', 20 - completedBlocks)}]";
+        int completedBlocks = Math.Clamp(percentage / 10, 0, 10);
+        return $"[{new string('+', completedBlocks)}{new string('-', 10 - completedBlocks)}]";
     }
 
     private static string FormatEstimatedEnd(DateTime now, long targetBytes, long completedBytes,
@@ -686,10 +686,10 @@ public static class Stat
         duration.HasValue ? FormatDuration(duration.Value) : "—";
 
     private static string FormatSpeed(double bytesPerSecond) =>
-        $"{bytesPerSecond / 1024d / 1024d:N2} МБ/с";
+        $"{bytesPerSecond / 1024d / 1024d:N1} МБ/с";
 
     private static string FormatGigabytesPerMinute(double bytesPerSecond) =>
-        $"{bytesPerSecond / 1024d / 1024d / 1024d * 60:N2} ГБ/мин";
+        $"{bytesPerSecond / 1024d / 1024d / 1024d * 60:N1} ГБ/мин";
 
     private static string FormatOptionalSpeed(double? bytesPerSecond) =>
         bytesPerSecond.HasValue ? FormatSpeed(bytesPerSecond.Value) : "—";
@@ -704,7 +704,7 @@ public static class Stat
             size /= 1024;
             unitIndex++;
         }
-        return $"{size:N2} {units[unitIndex]}";
+        return $"{size:N1} {units[unitIndex]}";
     }
 
     private static TimeSpan GetCopyElapsedTime() => GetCopyElapsedTime(DateTime.Now);
