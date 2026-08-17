@@ -26,6 +26,9 @@ public static class Stat
     private static Timer? progressTimer;
     private static int progressTimerGeneration;
     private static bool finalProgressLogged;
+    private static bool isPaused;
+    private static DateTime pauseStartedAt;
+    private static TimeSpan pausedDuration;
     private static readonly SortedSet<char> sourceDriveLetters = new();
     private static readonly StatFile statFile = new();
     private static readonly List<SizeGroupStat> sizeGroups = new();
@@ -68,6 +71,9 @@ public static class Stat
             lastRecalculatedAt = default;
             lastLoggedAt = default;
             finalProgressLogged = false;
+            isPaused = false;
+            pauseStartedAt = default;
+            pausedDuration = TimeSpan.Zero;
             totalCount = 0;
             completeCount = 0;
             totalSize = 0;
@@ -124,6 +130,41 @@ public static class Stat
         }
     }
 
+    public static void SetPaused(bool value)
+    {
+        lock (syncRoot)
+        {
+            if (isPaused == value)
+                return;
+
+            DateTime now = DateTime.Now;
+            isPaused = value;
+            if (value)
+            {
+                if (copyStartTime != default)
+                    pauseStartedAt = now;
+            }
+            else if (pauseStartedAt != default)
+            {
+                pausedDuration += now - pauseStartedAt;
+                pauseStartedAt = default;
+            }
+
+            lastRecalculatedAt = default;
+            if (copyStartTime != default)
+            {
+                RecalculateEstimatedTime();
+                return;
+            }
+
+            string report = BuildProgressReportCore(now, includeTimeBlock: true);
+            if (statFile.IsRootDirectoryConfigured)
+                statFile.GenerateNewFile(GetPercentageOfCompletion(), GetCurrentGroupType(), currentFileSize,
+                    imagesEta, totalEta, GetCurrentScanTime(), report);
+            WriteProgressToConsole(report);
+        }
+    }
+
     public static TimeSpan Stop()
     {
         lock (syncRoot)
@@ -160,7 +201,7 @@ public static class Stat
                 return;
 
             lastRecalculatedAt = now;
-            TimeSpan copyElapsed = now - copyStartTime;
+            TimeSpan copyElapsed = GetCopyElapsedTime(now);
             bool estimatesEnabled = copyElapsed >= EstimateWarmupDuration && completeSize > 0;
             if (estimatesEnabled)
             {
@@ -361,7 +402,7 @@ public static class Stat
 
     private static string BuildProgressReportCore(DateTime now, bool includeTimeBlock)
     {
-        TimeSpan copyElapsed = copyStartTime == default ? TimeSpan.Zero : now - copyStartTime;
+        TimeSpan copyElapsed = copyStartTime == default ? TimeSpan.Zero : GetCopyElapsedTime(now);
         bool estimatesEnabled = copyElapsed >= EstimateWarmupDuration && completeSize > 0;
         double averageBytesPerSecond = estimatesEnabled && copyElapsed.TotalSeconds > 0
             ? completeSize / copyElapsed.TotalSeconds
@@ -440,8 +481,13 @@ public static class Stat
         return WrapReport(lines);
     }
 
-    private static string WrapReport(IEnumerable<string> lines) => string.Join(Environment.NewLine,
-        new[] { LogSeparator }.Concat(lines).Append(LogSeparator));
+    private static string WrapReport(IEnumerable<string> lines)
+    {
+        IEnumerable<string> firstLines = isPaused
+            ? new[] { "ПАУЗА", LogSeparator }
+            : new[] { LogSeparator };
+        return string.Join(Environment.NewLine, firstLines.Concat(lines).Append(LogSeparator));
+    }
 
     private static string BuildLogProgressBlockCore(DateTime now) =>
         BuildProgressReportCore(now, includeTimeBlock: false);
@@ -575,10 +621,13 @@ public static class Stat
         return $"{size:N2} {units[unitIndex]}";
     }
 
-    private static TimeSpan GetCopyElapsedTime()
+    private static TimeSpan GetCopyElapsedTime() => GetCopyElapsedTime(DateTime.Now);
+
+    private static TimeSpan GetCopyElapsedTime(DateTime now)
     {
         DateTime effectiveStartTime = copyStartTime == default ? startTime : copyStartTime;
-        return DateTime.Now - effectiveStartTime;
+        DateTime effectiveNow = isPaused && pauseStartedAt != default ? pauseStartedAt : now;
+        return TimeSpan.FromTicks(Math.Max(0, (effectiveNow - effectiveStartTime - pausedDuration).Ticks));
     }
 
     private static void ProgressTimerTick(int generation)

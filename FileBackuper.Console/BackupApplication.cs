@@ -11,6 +11,7 @@ internal class BackupApplication
         string stateDirectory = StatePaths.EnsureStateDirectory(options.StateDirectory);
 
         using CancellationTokenSource cancellationSource = new();
+        int exitRequested = 0;
         ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
         {
             eventArgs.Cancel = true;
@@ -56,15 +57,36 @@ internal class BackupApplication
                 priorityService: priorityService,
                 diagnosticFormatter: diagnosticFormatter);
             CopyScheduler copyScheduler = new(manifestStore, priorityService);
+            CopyPauseState copyPauseState = new();
 
-            RunBackup(jobManager, copyScheduler, destinationDirectory, options, cancellationSource.Token);
+            Stat.Reset();
+            Stat.Start();
+            using GlobalHotKeys hotKeys = new(
+                copyPauseState.Pause,
+                copyPauseState.Resume,
+                () =>
+                {
+                    if (Interlocked.Exchange(ref exitRequested, 1) != 0)
+                        return;
+                    BackupLog.Info("Запрошен выход горячей клавишей Ctrl+Shift+Alt+X.");
+                    BackupLog.Flush();
+                    cancellationSource.Cancel();
+                });
+            BackupLog.Info("Горячие клавиши: пауза Ctrl+Shift+Alt+P; " +
+                "продолжить Ctrl+Shift+Alt+R; выход Ctrl+Shift+Alt+X.");
+            BackupLog.Flush();
+
+            RunBackup(jobManager, copyScheduler, copyPauseState, destinationDirectory, options,
+                cancellationSource.Token);
             if (!jobManager.HasForeignWork)
                 manifestStore.DeleteCompleted();
         }
         catch (OperationCanceledException) when (cancellationSource.IsCancellationRequested)
         {
             Stat.Stop();
-            BackupLog.Warning("Операция отменена пользователем.");
+            BackupLog.Warning(Volatile.Read(ref exitRequested) != 0
+                ? "Работа завершена по горячей клавише выхода."
+                : "Операция отменена пользователем.");
             BackupLog.Flush();
         }
         finally
@@ -74,10 +96,9 @@ internal class BackupApplication
     }
 
     private static void RunBackup(BackupJobManager jobManager, CopyScheduler copyScheduler,
-        string destinationDirectory, BackupOptions options, CancellationToken cancellationToken)
+        CopyPauseState copyPauseState, string destinationDirectory, BackupOptions options,
+        CancellationToken cancellationToken)
     {
-        Stat.Reset();
-        Stat.Start();
         BackupLog.Info("Подготовка начальной общей очереди дисков.");
 
         BackupJobBatch? initialBatch = jobManager
@@ -99,9 +120,10 @@ internal class BackupApplication
                 checkedDrives = true;
             }
 
-            bool copiedFile = copyScheduler.CopyNextAsync(destinationDirectory, cancellationToken)
-                .GetAwaiter()
-                .GetResult();
+            bool copiedFile = !copyPauseState.IsPaused &&
+                copyScheduler.CopyNextAsync(destinationDirectory, cancellationToken)
+                    .GetAwaiter()
+                    .GetResult();
             if (copiedFile)
                 continue;
 
@@ -115,6 +137,12 @@ internal class BackupApplication
                         continue;
                 }
 
+                if (copyPauseState.IsPaused && copyScheduler.PendingFileCount > 0)
+                {
+                    DelayWhilePaused(cancellationToken);
+                    continue;
+                }
+
                 jobManager.LogTotalAnalysisStatistics();
                 copyScheduler.LogFinalStatistics();
                 TimeSpan duration = Stat.Stop();
@@ -123,7 +151,9 @@ internal class BackupApplication
                 return;
             }
 
-            Task.Delay(TimeSpan.FromSeconds(options.DrivePollingIntervalSeconds), cancellationToken)
+            Task.Delay(copyPauseState.IsPaused
+                    ? TimeSpan.FromMilliseconds(200)
+                    : TimeSpan.FromSeconds(options.DrivePollingIntervalSeconds), cancellationToken)
                 .GetAwaiter()
                 .GetResult();
         }
@@ -136,4 +166,7 @@ internal class BackupApplication
         foreach (BackupJob job in jobManager.ReadyJobs)
             copyScheduler.Enqueue(job);
     }
+
+    private static void DelayWhilePaused(CancellationToken cancellationToken) =>
+        Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken).GetAwaiter().GetResult();
 }

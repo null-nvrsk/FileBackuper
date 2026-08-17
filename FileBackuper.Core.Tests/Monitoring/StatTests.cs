@@ -40,6 +40,25 @@ public class StatTests
     }
 
     [Fact]
+    public void ProgressReport_WhenCopyingIsPaused_StartsWithPauseMarker()
+    {
+        Stat.Reset();
+        Stat.Start();
+
+        Stat.SetPaused(true);
+
+        string report = Stat.BuildProgressReport();
+        Assert.Equal("ПАУЗА", report.Split(Environment.NewLine)[0]);
+        Assert.Contains("время копирования 00:00:00",
+            Stat.BuildProgressReport(DateTime.Now.AddMinutes(1)));
+
+        Stat.SetPaused(false);
+        Assert.Equal(new string('-', 130),
+            Stat.BuildProgressReport().Split(Environment.NewLine)[0]);
+        Stat.Reset();
+    }
+
+    [Fact]
     public void ProgressReport_ContainsGroupSummaryTotalsAndTimeBlock()
     {
         using TestWorkspace workspace = new();
