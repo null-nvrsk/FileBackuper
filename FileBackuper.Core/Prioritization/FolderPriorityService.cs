@@ -5,7 +5,7 @@ public sealed class FolderPriorityService
     private static readonly IReadOnlySet<string> PrivateFolderNames = new HashSet<string>(
         new[]
         {
-            "private", "intimate", "18+", "adult", "secret", "hidden", "sex", "nude", "личное",
+            "private", "intimate", "18+", "adult", "secret", "hidden", "sex", "nake", "nude", "личное",
             "личные", "приват", "взрослых", "секс", "секрет", "скрыт", "открывать", "мои фот"
         },
         StringComparer.OrdinalIgnoreCase);
