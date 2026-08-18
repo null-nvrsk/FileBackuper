@@ -576,7 +576,7 @@ public static class Stat
     }
 
     private static string BuildLogProgressBlockCore(DateTime now) =>
-        BuildProgressReportCore(now, includeTimeBlock: false);
+        BuildProgressReportCore(now, includeTimeBlock: true);
 
     private static void WriteProgressToLogCore(DateTime now)
     {

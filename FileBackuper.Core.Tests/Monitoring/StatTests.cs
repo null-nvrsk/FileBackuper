@@ -133,8 +133,10 @@ public class StatTests
         string[] logLines = logBlock.Split(Environment.NewLine);
         Assert.Equal(new string('-', 120), logLines[0]);
         Assert.Equal(new string('-', 120), logLines[^1]);
-        Assert.DoesNotContain("Блок времени", logBlock);
-        Assert.DoesNotContain("примерное время", logBlock);
+        Assert.Contains("Блок времени:", logBlock);
+        Assert.Contains("- время начала", logBlock);
+        Assert.Matches(@"примерное время копирования до 100 МБ\s+: выполнено", logBlock);
+        Assert.Contains("примерное время всего", logBlock);
         Stat.Reset();
     }
 
