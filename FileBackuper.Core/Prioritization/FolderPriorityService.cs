@@ -27,7 +27,7 @@ public sealed class FolderPriorityService
         StringComparer.OrdinalIgnoreCase);
 
     private static readonly IReadOnlySet<string> LastPriorityFolderNames = new HashSet<string>(
-        new[] { "downloads", "загрузки" },
+        new[] { "downloads", "загрузки", "film", "фильм", "курс" },
         StringComparer.OrdinalIgnoreCase);
 
     public int GetPriority(FileInfo file)
@@ -49,7 +49,7 @@ public sealed class FolderPriorityService
             return 4;
         if (segments.Any(LowPriorityFolderNames.Contains))
             return 2;
-        if (segments.Any(LastPriorityFolderNames.Contains))
+        if (segments.Any(segment => ContainsFolderName(segment, LastPriorityFolderNames)))
             return 1;
         return 3;
     }

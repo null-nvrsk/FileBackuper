@@ -25,6 +25,12 @@ public class ConfiguredRulesTests
     [InlineData("IMG_1234.jpg")]
     [InlineData("VID-20240101-WA0001.mp4")]
     [InlineData("20240101_123456.mp4")]
+    [InlineData("photo_2023-07-02_22-04-49 (2).jpg")]
+    [InlineData("photo_2023-07-02_22-04-49.jpg")]
+    [InlineData("WhatsApp Image 2018-11-17 at 17.43.45(1).jpeg")]
+    [InlineData("photo_11_2024-07-01_21-21-14.jpg")]
+    [InlineData("__IMG-20190222-WA0002.jpg")]
+    [InlineData("__IMG_20231019_140907_252.jpg")]
     public void CameraPatternFile_MatchesKnownCameraAndPhoneNames(string fileName)
     {
         RegexPatternSet patterns = RegexPatternSet.Load(GetRulePath("CameraFileNamePatterns.txt"));
@@ -36,6 +42,13 @@ public class ConfiguredRulesTests
     [InlineData("Movie.REMUX.1080p.mp4")]
     [InlineData("Series.S02E04.WEB-DL.mp4")]
     [InlineData("Film.BluRay.x265.mkv")]
+    [InlineData("Сериал СЕЗОН 2.mp4")]
+    [InlineData("Новый ВЕБИНАР.mp4")]
+    [InlineData("Developer WEBINAR.mp4")]
+    [InlineData("КУРС CSharp.mp4")]
+    [InlineData("УРОК 5.mp4")]
+    [InlineData("Movie.WEBRIP.mkv")]
+    [InlineData("Movie.BDRIP.avi")]
     public void VideoBlacklistPatternFile_MatchesReleaseNames(string fileName)
     {
         RegexPatternSet patterns = RegexPatternSet.Load(GetRulePath("VideoBlacklistPatterns.txt"));

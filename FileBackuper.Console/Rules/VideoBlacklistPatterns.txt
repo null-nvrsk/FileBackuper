@@ -9,3 +9,6 @@
 \b(?:season|сезон)\b
 \bs\d{1,2}e\d{1,2}\b
 \b(?:dub|dubbing)\b
+
+# Educational content markers
+\b(?:вебинар|webinar|курс|урок)\b

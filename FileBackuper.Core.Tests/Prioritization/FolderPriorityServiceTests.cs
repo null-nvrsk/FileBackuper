@@ -18,6 +18,10 @@ public class FolderPriorityServiceTests
     [InlineData("Other", 3)]
     [InlineData("Temp", 2)]
     [InlineData("Downloads", 1)]
+    [InlineData("My downloads archive", 1)]
+    [InlineData("Films 2024", 1)]
+    [InlineData("Новые фильмы", 1)]
+    [InlineData("Видеокурсы", 1)]
     public void GetPriority_ReturnsPriorityForDirectorySegment(string directoryName, int expectedPriority)
     {
         string root = Path.GetPathRoot(Environment.CurrentDirectory)!;
