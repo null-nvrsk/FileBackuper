@@ -137,15 +137,18 @@ public sealed class BackupJobManager : IDisposable
 
         BackupJobBatch batch = new(startedJobs);
         batch.CollectScannedFiles();
-        BackupLog.Info("Сканирование всех дисков завершено.");
-        BackupLog.Info($"Всего найдено файлов: {batch.Files.Count:N0}");
-        BackupLog.Info($"Общий размер файлов по всем дискам: {batch.Files.Sum(candidate => candidate.Length):N0} байтов");
         MediaAnalysisStatistics totalAnalysisStatistics = MediaAnalysisStatistics.Sum(
             batch.Jobs.Select(job => job.AnalysisStatistics));
-        LogAnalysisStatistics("Начальная партия", totalAnalysisStatistics);
+        string[] totalAnalysisLines = FormatAnalysisStatistics("Начальная партия", totalAnalysisStatistics);
+        BackupLog.InfoBlock(
+            "Сканирование всех дисков завершено.",
+            $"Всего найдено файлов: {batch.Files.Count:N0}",
+            $"Общий размер файлов по всем дискам: {batch.Files.Sum(candidate => candidate.Length):N0} байтов",
+            totalAnalysisLines[0],
+            totalAnalysisLines[1]);
         BackupLog.Flush();
 
-        BackupLog.Info($"Начало сортировки общей очереди: {batch.Files.Count:N0} файлов.");
+        BackupLog.InfoBlock($"Начало сортировки общей очереди: {batch.Files.Count:N0} файлов.");
         List<BackupFileCandidate> sortedFiles = orderFiles(batch.Files, cancellationToken);
         batch.SetSortedFiles(sortedFiles);
         foreach (BackupJob job in batch.Jobs)
@@ -169,7 +172,7 @@ public sealed class BackupJobManager : IDisposable
         ThrowIfDisposed();
         MediaAnalysisStatistics statistics = MediaAnalysisStatistics.Sum(
             jobs.Values.Select(item => item.Job.AnalysisStatistics));
-        LogAnalysisStatistics("Итого за запуск", statistics);
+        BackupLog.InfoBlock(FormatAnalysisStatistics("Итого за запуск", statistics));
         BackupLog.Flush();
     }
 
@@ -247,7 +250,7 @@ public sealed class BackupJobManager : IDisposable
         try
         {
             List<BackupFileCandidate> scannedFiles = ScanAndRecord(job, token);
-            BackupLog.Info($"Начало сортировки файлов диска {job.SourceDrive.Name}");
+            BackupLog.InfoBlock($"Начало сортировки файлов диска {job.SourceDrive.Name}");
             List<BackupFileCandidate> sortedFiles = orderFiles(scannedFiles, token);
             job.SetSortedFiles(sortedFiles);
             manifestStore.Save(job.Manifest);
@@ -362,14 +365,17 @@ public sealed class BackupJobManager : IDisposable
         job.SetScannedFiles(candidates);
         manifestStore.Save(job.Manifest);
 
-        BackupLog.Info($"Сканирование диска {job.SourceDrive.Name} завершено.");
-        BackupLog.Info($"Время сканирования: {scanningStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}");
-        BackupLog.Info($"Найдено файлов: {candidates.Count:N0}");
-        BackupLog.Info($"Общий размер файлов: {candidates.Sum(candidate => candidate.Length):N0} байтов");
-        BackupLog.Info($"Пропущено фильтрами анализа: {filteredFiles:N0}");
-        BackupLog.Info($"Пропущено облачных файлов: {scanResult.CloudFilesSkipped:N0}");
-        BackupLog.Info($"Медиафайлов найдено в кэше браузеров по сигнатуре: {browserCacheFilesFound:N0}");
-        LogAnalysisStatistics($"Диск {job.SourceDrive.Name}", analysisStatistics);
+        string[] analysisLines = FormatAnalysisStatistics($"Диск {job.SourceDrive.Name}", analysisStatistics);
+        BackupLog.InfoBlock(
+            $"Сканирование диска {job.SourceDrive.Name} завершено.",
+            $"Время сканирования: {scanningStopwatch.Elapsed:hh\\:mm\\:ss\\.ff}",
+            $"Найдено файлов: {candidates.Count:N0}",
+            $"Общий размер файлов: {candidates.Sum(candidate => candidate.Length):N0} байтов",
+            $"Пропущено фильтрами анализа: {filteredFiles:N0}",
+            $"Пропущено облачных файлов: {scanResult.CloudFilesSkipped:N0}",
+            $"Медиафайлов найдено в кэше браузеров по сигнатуре: {browserCacheFilesFound:N0}",
+            analysisLines[0],
+            analysisLines[1]);
         BackupLog.Flush();
         return candidates;
     }
@@ -381,13 +387,14 @@ public sealed class BackupJobManager : IDisposable
         BackupLog.Flush();
     }
 
-    private static void LogAnalysisStatistics(string scope, MediaAnalysisStatistics statistics)
+    private static string[] FormatAnalysisStatistics(string scope, MediaAnalysisStatistics statistics) =>
+    new[]
     {
-        BackupLog.Info($"Анализ EXIF | {scope} | Проверок={statistics.ExifFilesAnalyzed:N0} | " +
-            $"Общее время={FormatDuration(statistics.ExifAnalysisDuration)}");
-        BackupLog.Info($"Анализ файлов без расширения | {scope} | Проверок={statistics.ExtensionlessFilesAnalyzed:N0} | " +
-            $"Общее время={FormatDuration(statistics.ExtensionlessAnalysisDuration)}");
-    }
+        $"Анализ EXIF | {scope} | Проверок={statistics.ExifFilesAnalyzed:N0} | " +
+            $"Общее время={FormatDuration(statistics.ExifAnalysisDuration)}",
+        $"Анализ файлов без расширения | {scope} | Проверок={statistics.ExtensionlessFilesAnalyzed:N0} | " +
+            $"Общее время={FormatDuration(statistics.ExtensionlessAnalysisDuration)}"
+    };
 
     private static string FormatDuration(TimeSpan duration) =>
         $"{(long)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}.{duration.Milliseconds:000}";

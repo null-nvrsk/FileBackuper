@@ -6,6 +6,9 @@ internal class BackupApplication
 {
     public void Run()
     {
+        Stat.Reset();
+        Stat.Start();
+
         BackupOptions options = LoggingConfiguration.LoadBackupOptions();
         ConsoleWindow.SetVisibility(options.ShowConsole);
         string stateDirectory = StatePaths.EnsureStateDirectory(options.StateDirectory);
@@ -59,8 +62,6 @@ internal class BackupApplication
             CopyScheduler copyScheduler = new(manifestStore, priorityService);
             CopyPauseState copyPauseState = new();
 
-            Stat.Reset();
-            Stat.Start();
             using GlobalHotKeys hotKeys = new(
                 copyPauseState.Pause,
                 copyPauseState.Resume,
@@ -72,7 +73,7 @@ internal class BackupApplication
                     BackupLog.Flush();
                     cancellationSource.Cancel();
                 });
-            BackupLog.Info("Горячие клавиши: пауза Ctrl+Shift+Alt+P; " +
+            BackupLog.InfoBlock("Горячие клавиши: пауза Ctrl+Shift+Alt+P; " +
                 "продолжить Ctrl+Shift+Alt+R; выход Ctrl+Shift+Alt+X.");
             BackupLog.Flush();
 

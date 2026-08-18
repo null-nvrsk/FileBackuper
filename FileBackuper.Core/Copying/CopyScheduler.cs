@@ -88,7 +88,8 @@ public sealed class CopyScheduler
             copyingStarted = true;
             copyStopwatch.Start();
             Stat.StartCopying();
-            BackupLog.Info("Начало копирования");
+            BackupLog.InfoBlock("Начало копирования");
+            BackupLog.BlankLine();
             BackupLog.Flush();
         }
 
