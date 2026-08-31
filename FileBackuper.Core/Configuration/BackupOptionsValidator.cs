@@ -5,7 +5,8 @@ public static class BackupOptionsValidator
     public static void Validate(BackupOptions options, string destinationDirectory)
     {
         if (!Enum.IsDefined(typeof(CloudFileMode), options.CloudFileMode))
-            throw new InvalidOperationException("Указан неизвестный режим обработки облачных файлов.");
+            throw new InvalidOperationException(
+                "Указан неизвестный режим обработки облачных файлов. Допустимые значения: FastSkip, Precise.");
 
         if (options.SkipDirectoryNames is null || options.SkipDirectoryNames.Any(string.IsNullOrWhiteSpace))
         {

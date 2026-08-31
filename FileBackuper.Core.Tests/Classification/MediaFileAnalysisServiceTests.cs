@@ -93,6 +93,21 @@ public class MediaFileAnalysisServiceTests
     }
 
     [Fact]
+    public void Analyze_SkipsVideoWhenBlacklistPatternMatchesDirectoryInFullPath()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo file = workspace.CreateFile(Path.Combine("Movie_2019_BDRip", "movie.avi"), 20_000);
+        const string blacklistPattern = "(?<![a-z0-9])bdrip(?![a-z0-9])";
+        MediaFileAnalysisService service = CreateService(workspace, "^VID_", blacklistPattern,
+            new StubExifMetadataReader(ExifMetadata.Empty));
+
+        MediaFileAnalysis result = service.Analyze(file, allowSignatureDetection: false);
+
+        Assert.Equal(MediaSkipReasons.VideoBlacklist, result.SkipReason);
+        Assert.Equal(blacklistPattern, result.MatchedVideoBlacklistPattern);
+    }
+
+    [Fact]
     public void Analyze_CameraPatternProtectsVideoFromGenericBlacklistMatch()
     {
         using TestWorkspace workspace = new();

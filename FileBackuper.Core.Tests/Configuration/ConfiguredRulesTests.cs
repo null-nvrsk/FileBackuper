@@ -49,6 +49,7 @@ public class ConfiguredRulesTests
     [InlineData("УРОК 5.mp4")]
     [InlineData("Movie.WEBRIP.mkv")]
     [InlineData("Movie.BDRIP.avi")]
+    [InlineData("Movie_2019_BDRip.avi")]
     public void VideoBlacklistPatternFile_MatchesReleaseNames(string fileName)
     {
         RegexPatternSet patterns = RegexPatternSet.Load(GetRulePath("VideoBlacklistPatterns.txt"));
@@ -60,8 +61,14 @@ public class ConfiguredRulesTests
     public void AppSettings_ContainsValidBackupConfiguration()
     {
         string json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "appsettings.json"));
-        using JsonDocument document = JsonDocument.Parse(json);
-        JsonSerializerOptions serializerOptions = new();
+        using JsonDocument document = JsonDocument.Parse(json, new JsonDocumentOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip
+        });
+        JsonSerializerOptions serializerOptions = new()
+        {
+            ReadCommentHandling = JsonCommentHandling.Skip
+        };
         serializerOptions.Converters.Add(new JsonStringEnumConverter());
         BackupOptions? options = JsonSerializer.Deserialize<BackupOptions>(
             document.RootElement.GetProperty("Backup").GetRawText(), serializerOptions);

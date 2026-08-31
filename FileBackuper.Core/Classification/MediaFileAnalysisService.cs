@@ -119,7 +119,7 @@ public sealed class MediaFileAnalysisService
         CameraEvidence cameraEvidence = GetCameraEvidence(matchedCameraPattern is not null, hasCameraExif);
 
         string? matchedBlacklistPattern = kind == MediaKind.Video
-            ? videoBlacklistPatterns.FindMatchingPattern(file.Name)
+            ? videoBlacklistPatterns.FindMatchingPattern(file.FullName)
             : null;
         string? skipReason = matchedBlacklistPattern is not null && matchedCameraPattern is null
             ? MediaSkipReasons.VideoBlacklist
