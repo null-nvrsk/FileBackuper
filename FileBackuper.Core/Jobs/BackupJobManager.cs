@@ -31,6 +31,7 @@ public sealed class BackupJobManager : IDisposable
         Func<DirectoryInfo, CancellationToken, FileScanResult>? scanFiles = null,
         Func<IEnumerable<BackupFileCandidate>, CancellationToken, List<BackupFileCandidate>>? orderFiles = null,
         IReadOnlyCollection<string>? skipDirectoryNames = null,
+        FileTypeSelection? fileTypeSelection = null,
         bool includeBrowserCaches = false,
         long minFileSizeBytes = 10_000,
         long maxFileSizeBytes = 4_000_000_000,
@@ -55,8 +56,9 @@ public sealed class BackupJobManager : IDisposable
         {
             "Windows", "Program Files", "Program Files (x86)", "ProgramData", "AppData"
         };
+        FileTypeSelection effectiveFileTypeSelection = fileTypeSelection ?? FileTypeSelection.Default;
         this.scanFiles = scanFiles ?? ((root, token) =>
-            FileScanner.ScanWithStatistics(root, token, this.skipDirectoryNames));
+            FileScanner.ScanWithStatistics(root, token, this.skipDirectoryNames, effectiveFileTypeSelection));
         BackupFilePriorityService effectivePriorityService = priorityService ??
             new BackupFilePriorityService(new FileSizeGroupService(new BackupOptions().FileSizeGroups));
         this.orderFiles = orderFiles ?? effectivePriorityService.OrderByBackupPriority;
@@ -65,7 +67,8 @@ public sealed class BackupJobManager : IDisposable
         this.maxFileSizeBytes = maxFileSizeBytes;
         this.browserCacheScanner = browserCacheScanner ?? new BrowserCacheScanner();
         this.mediaFileAnalysisService = mediaFileAnalysisService ?? new MediaFileAnalysisService(
-            minFileSizeBytes, maxFileSizeBytes, RegexPatternSet.Empty, RegexPatternSet.Empty);
+            minFileSizeBytes, maxFileSizeBytes, RegexPatternSet.Empty, RegexPatternSet.Empty,
+            fileTypeSelection: effectiveFileTypeSelection);
         this.diagnosticFormatter = diagnosticFormatter ?? new BackupFileDiagnosticFormatter(
             new FileSizeGroupService(new BackupOptions().FileSizeGroups));
     }

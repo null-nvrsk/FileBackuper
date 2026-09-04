@@ -15,6 +15,8 @@ public static class LoggingConfiguration
 
         // ConfigurationBinder adds values to initialized collections instead of replacing them.
         // Clear only collections explicitly present in JSON so omitted settings retain defaults.
+        if (section.GetSection(nameof(BackupOptions.FileCategories)).Exists())
+            options.FileCategories.Clear();
         if (section.GetSection(nameof(BackupOptions.FileSizeGroups)).Exists())
             options.FileSizeGroups.Clear();
         if (section.GetSection(nameof(BackupOptions.SkipDirectoryNames)).Exists())

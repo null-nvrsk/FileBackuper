@@ -77,6 +77,27 @@ public class ConfiguredRulesTests
         BackupOptionsValidator.Validate(options, Path.GetTempPath());
         Assert.Contains("AppData", options.SkipDirectoryNames);
         Assert.NotEmpty(options.FileSizeGroups);
+        Assert.Equal(new[] { "Images", "Videos", "Documents", "Archives", "Audio" },
+            options.FileCategories.Select(category => category.Name));
+        Assert.All(options.FileCategories, category => Assert.False(category.Enabled));
+        FileCategoryOptions images = options.FileCategories.Single(category => category.Name == "Images");
+        FileCategoryOptions videos = options.FileCategories.Single(category => category.Name == "Videos");
+        Assert.Equal(new[]
+        {
+            "jpg", "jpeg", "heic", "cr2", "cr3", "nef", "nrw", "arw", "raf", "orf", "rw2",
+            "pef", "dng", "rwl", "raw", "srw", "x3f"
+        }, images.EnabledExtensions);
+        Assert.Equal(new[]
+        {
+            "mp4", "mpg", "mov", "avi", "mts", "m2ts", "3gp", "webm", "mxf", "ts", "asf"
+        }, videos.EnabledExtensions);
+        Assert.Contains("avif", images.Extensions);
+        Assert.DoesNotContain("avif", images.EnabledExtensions);
+        Assert.Contains("mkv", videos.Extensions);
+        Assert.DoesNotContain("mkv", videos.EnabledExtensions);
+        Assert.Contains("djvu", options.FileCategories.Single(category => category.Name == "Documents").Extensions);
+        Assert.Contains("7z", options.FileCategories.Single(category => category.Name == "Archives").Extensions);
+        Assert.Contains("flac", options.FileCategories.Single(category => category.Name == "Audio").Extensions);
     }
 
     [Fact]
@@ -88,6 +109,7 @@ public class ConfiguredRulesTests
         Assert.Equal(options.FileSizeGroups.Count,
             options.FileSizeGroups.Select(group => group.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Equal(5, options.SkipDirectoryNames.Count);
+        Assert.Equal(5, options.FileCategories.Count);
         BackupOptionsValidator.Validate(options, Path.GetTempPath());
     }
 

@@ -2,29 +2,19 @@ namespace FileBackuper.Core;
 
 public static class MediaFileClassifier
 {
-    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".heic", ".cr2", ".cr3", ".nef", ".nrw", ".arw", ".raf", ".orf",
-        ".rw2", ".pef", ".dng", ".rwl", ".raw", ".srw", ".x3f"
-    };
-
-    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".mp4", ".mpg", ".mov", ".avi", ".mts", ".m2ts", ".3gp", ".webm", ".mxf", ".ts", ".asf"
-    };
-
-    public static MediaKind GetKindByExtension(FileInfo file)
+    public static MediaKind GetKindByExtension(FileInfo file, FileTypeSelection? selection = null)
     {
         ArgumentNullException.ThrowIfNull(file);
-        if (ImageExtensions.Contains(file.Extension))
-            return MediaKind.Image;
-        if (VideoExtensions.Contains(file.Extension))
-            return MediaKind.Video;
-        return MediaKind.Unknown;
+        return (selection ?? FileTypeSelection.Default).GetKind(file.Extension);
     }
 
-    public static bool IsImage(FileInfo file) => GetKindByExtension(file) == MediaKind.Image;
+    public static bool IsSupported(FileInfo file, FileTypeSelection? selection = null) =>
+        GetKindByExtension(file, selection) != MediaKind.Unknown;
 
-    public static bool IsVideo(FileInfo file) => GetKindByExtension(file) == MediaKind.Video;
+    public static bool IsImage(FileInfo file, FileTypeSelection? selection = null) =>
+        GetKindByExtension(file, selection) == MediaKind.Image;
+
+    public static bool IsVideo(FileInfo file, FileTypeSelection? selection = null) =>
+        GetKindByExtension(file, selection) == MediaKind.Video;
 
 }

@@ -13,6 +13,7 @@ public static class BackupOptionsValidator
             throw new InvalidOperationException("SkipDirectoryNames must not contain empty directory names.");
         }
 
+        ValidateFileCategories(options);
         ValidateFileSizeGroups(options);
 
         if (options.DrivePollingIntervalSeconds <= 0)
@@ -38,6 +39,66 @@ public static class BackupOptionsValidator
             throw new InvalidOperationException(
                 "Папка DestinationDirectory не может совпадать с ScanDirectory или находиться внутри неё.");
         }
+    }
+
+    private static void ValidateFileCategories(BackupOptions options)
+    {
+        if (options.FileCategories is null || options.FileCategories.Count == 0)
+            throw new InvalidOperationException("At least one file category must be configured.");
+
+        HashSet<string> categoryNames = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> allExtensions = new(StringComparer.OrdinalIgnoreCase);
+        bool hasEnabledFileType = false;
+
+        for (int index = 0; index < options.FileCategories.Count; index++)
+        {
+            FileCategoryOptions category = options.FileCategories[index]
+                ?? throw new InvalidOperationException($"File category #{index + 1} is null.");
+            if (string.IsNullOrWhiteSpace(category.Name))
+                throw new InvalidOperationException($"File category #{index + 1} has an empty name.");
+            if (!categoryNames.Add(category.Name))
+                throw new InvalidOperationException($"File category name '{category.Name}' is duplicated.");
+            if (category.Kind == MediaKind.Unknown || !Enum.IsDefined(typeof(MediaKind), category.Kind))
+                throw new InvalidOperationException($"File category '{category.Name}' has an invalid kind.");
+            if (category.Extensions is null || category.Extensions.Count == 0)
+                throw new InvalidOperationException($"File category '{category.Name}' has no extensions.");
+            if (category.EnabledExtensions is null)
+                throw new InvalidOperationException($"File category '{category.Name}' has null EnabledExtensions.");
+
+            HashSet<string> categoryExtensions = new(StringComparer.OrdinalIgnoreCase);
+            foreach (string extension in category.Extensions)
+            {
+                string normalized = ValidateAndNormalizeExtension(extension, category.Name);
+                if (!categoryExtensions.Add(normalized))
+                    throw new InvalidOperationException(
+                        $"Extension '{extension}' is duplicated in file category '{category.Name}'.");
+                if (!allExtensions.Add(normalized))
+                    throw new InvalidOperationException(
+                        $"Extension '{extension}' is assigned to more than one file category.");
+            }
+
+            foreach (string extension in category.EnabledExtensions)
+            {
+                string normalized = ValidateAndNormalizeExtension(extension, category.Name);
+                if (!categoryExtensions.Contains(normalized))
+                    throw new InvalidOperationException(
+                        $"Enabled extension '{extension}' is not listed in file category '{category.Name}'.");
+            }
+
+            hasEnabledFileType |= category.Enabled || category.EnabledExtensions.Count > 0;
+        }
+
+        if (!hasEnabledFileType)
+            throw new InvalidOperationException("At least one file category or individual extension must be enabled.");
+    }
+
+    private static string ValidateAndNormalizeExtension(string extension, string categoryName)
+    {
+        string normalized = FileTypeSelection.NormalizeExtension(extension);
+        if (normalized.Length <= 1 || normalized[1..].Any(character => !char.IsLetterOrDigit(character)))
+            throw new InvalidOperationException(
+                $"File category '{categoryName}' contains invalid extension '{extension}'.");
+        return normalized;
     }
 
     private static void ValidateFileSizeGroups(BackupOptions options)

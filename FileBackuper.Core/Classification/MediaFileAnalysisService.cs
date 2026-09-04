@@ -9,11 +9,12 @@ public sealed class MediaFileAnalysisService
     private readonly IExifMetadataReader exifMetadataReader;
     private readonly FileSignatureDetector signatureDetector;
     private readonly bool enableExifAnalysis;
+    private readonly FileTypeSelection fileTypeSelection;
 
     public MediaFileAnalysisService(long minFileSizeBytes, long maxFileSizeBytes,
         RegexPatternSet cameraFileNamePatterns, RegexPatternSet videoBlacklistPatterns,
         IExifMetadataReader? exifMetadataReader = null, FileSignatureDetector? signatureDetector = null,
-        bool enableExifAnalysis = true)
+        bool enableExifAnalysis = true, FileTypeSelection? fileTypeSelection = null)
     {
         if (minFileSizeBytes < 0 || maxFileSizeBytes < minFileSizeBytes)
             throw new ArgumentException("The media file size range is invalid.");
@@ -27,6 +28,7 @@ public sealed class MediaFileAnalysisService
         this.exifMetadataReader = exifMetadataReader ?? new ExifMetadataReader();
         this.signatureDetector = signatureDetector ?? new FileSignatureDetector();
         this.enableExifAnalysis = enableExifAnalysis;
+        this.fileTypeSelection = fileTypeSelection ?? FileTypeSelection.Default;
     }
 
     public MediaFileAnalysis Analyze(FileInfo file, bool allowSignatureDetection)
@@ -54,7 +56,7 @@ public sealed class MediaFileAnalysisService
             };
         }
 
-        MediaKind kind = MediaFileClassifier.GetKindByExtension(file);
+        MediaKind kind = MediaFileClassifier.GetKindByExtension(file, fileTypeSelection);
         MediaDetectionSource detectionSource = kind == MediaKind.Unknown
             ? MediaDetectionSource.None
             : MediaDetectionSource.Extension;
@@ -78,7 +80,7 @@ public sealed class MediaFileAnalysisService
                 signatureAnalysisDuration = GetElapsedTime(signatureStarted);
             }
 
-            if (signature is not null)
+            if (signature is not null && fileTypeSelection.IsEnabled(signature.DetectedExtension))
             {
                 kind = signature.Kind;
                 detectionSource = MediaDetectionSource.Signature;
@@ -99,7 +101,9 @@ public sealed class MediaFileAnalysisService
             };
         }
 
-        string? matchedCameraPattern = cameraFileNamePatterns.FindMatchingPattern(file.Name);
+        string? matchedCameraPattern = kind is MediaKind.Image or MediaKind.Video
+            ? cameraFileNamePatterns.FindMatchingPattern(file.Name)
+            : null;
         bool exifAnalysisAttempted = kind == MediaKind.Image && enableExifAnalysis;
         TimeSpan exifAnalysisDuration = TimeSpan.Zero;
         ExifMetadata exifMetadata = ExifMetadata.Empty;

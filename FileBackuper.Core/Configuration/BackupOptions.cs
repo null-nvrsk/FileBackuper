@@ -16,6 +16,8 @@ public sealed class BackupOptions
     public long MaxFileSizeBytes { get; init; } = 4L * 1024 * 1024 * 1024;
     public bool EnableExifAnalysis { get; init; } = true;
 
+    public List<FileCategoryOptions> FileCategories { get; init; } = FileCategoryOptions.CreateDefaults();
+
     public List<FileSizeGroupOptions> FileSizeGroups { get; init; } = new()
     {
         new() { Name = "From10KBTo200KB", MinBytes = 10_240, MaxBytes = 204_800 },

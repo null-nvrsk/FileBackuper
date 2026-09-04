@@ -4,5 +4,8 @@ public enum MediaKind
 {
     Unknown,
     Image,
-    Video
+    Video,
+    Document,
+    Archive,
+    Audio
 }

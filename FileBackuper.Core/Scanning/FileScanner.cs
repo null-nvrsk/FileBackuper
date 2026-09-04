@@ -30,11 +30,11 @@ public static class FileScanner
     }
 
     public static List<FileInfo> Scan(DirectoryInfo root, CancellationToken cancellationToken,
-        IEnumerable<string>? skipDirectoryNames = null) =>
-        ScanWithStatistics(root, cancellationToken, skipDirectoryNames).Files;
+        IEnumerable<string>? skipDirectoryNames = null, FileTypeSelection? fileTypeSelection = null) =>
+        ScanWithStatistics(root, cancellationToken, skipDirectoryNames, fileTypeSelection).Files;
 
     public static FileScanResult ScanWithStatistics(DirectoryInfo root, CancellationToken cancellationToken,
-        IEnumerable<string>? skipDirectoryNames = null)
+        IEnumerable<string>? skipDirectoryNames = null, FileTypeSelection? fileTypeSelection = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         HashSet<string> skippedDirectories = new(skipDirectoryNames ?? DefaultSkipDirectoryNames,
@@ -61,7 +61,7 @@ public static class FileScanner
                 foreach (FileInfo file in directory.EnumerateFiles("*", enumerationOptions))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (!MediaFileClassifier.IsImage(file) && !MediaFileClassifier.IsVideo(file))
+                    if (!MediaFileClassifier.IsSupported(file, fileTypeSelection))
                         continue;
 
                     try

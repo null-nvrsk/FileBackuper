@@ -53,6 +53,34 @@ public class MediaFileAnalysisServiceTests
     }
 
     [Fact]
+    public void Analyze_ClassifiesDocumentWithoutMediaSpecificAnalysis()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo file = workspace.CreateFile("IMG_0001.pdf", 20_000);
+        StubExifMetadataReader exifReader = new(new ExifMetadata("Canon", null, null));
+        FileTypeSelection selection = new(new[]
+        {
+            new FileCategoryOptions
+            {
+                Name = "Documents",
+                Kind = MediaKind.Document,
+                Enabled = true,
+                Extensions = new() { "pdf" }
+            }
+        });
+        MediaFileAnalysisService service = CreateService(workspace, "^IMG_\\d+", "remux", exifReader,
+            fileTypeSelection: selection);
+
+        MediaFileAnalysis result = service.Analyze(file, allowSignatureDetection: false);
+
+        Assert.Equal(MediaKind.Document, result.Kind);
+        Assert.Equal(MediaDetectionSource.Extension, result.DetectionSource);
+        Assert.Equal(CameraEvidence.None, result.CameraEvidence);
+        Assert.Equal(0, exifReader.ReadCount);
+        Assert.False(result.IsSkipped);
+    }
+
+    [Fact]
     public void Analyze_DetectsExtensionlessMediaOnlyWhenSignatureDetectionIsAllowed()
     {
         using TestWorkspace workspace = new();
@@ -154,7 +182,8 @@ public class MediaFileAnalysisServiceTests
     }
 
     private static MediaFileAnalysisService CreateService(TestWorkspace workspace, string cameraPattern,
-        string blacklistPattern, IExifMetadataReader exifReader, bool enableExifAnalysis = true)
+        string blacklistPattern, IExifMetadataReader exifReader, bool enableExifAnalysis = true,
+        FileTypeSelection? fileTypeSelection = null)
     {
         string cameraPatternPath = Path.Combine(workspace.RootDirectory.FullName,
             Guid.NewGuid().ToString("N") + "-camera.txt");
@@ -165,7 +194,7 @@ public class MediaFileAnalysisServiceTests
 
         return new MediaFileAnalysisService(10_000, 4_000_000_000,
             RegexPatternSet.Load(cameraPatternPath), RegexPatternSet.Load(blacklistPatternPath), exifReader,
-            enableExifAnalysis: enableExifAnalysis);
+            enableExifAnalysis: enableExifAnalysis, fileTypeSelection: fileTypeSelection);
     }
 
     private sealed class StubExifMetadataReader : IExifMetadataReader

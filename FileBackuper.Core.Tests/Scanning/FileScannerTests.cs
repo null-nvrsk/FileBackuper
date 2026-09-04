@@ -81,4 +81,42 @@ public class FileScannerTests
         Assert.Contains(files, file => file.FullName == blacklistedVideo.FullName);
     }
 
+    [Fact]
+    public void Scan_SkipsCataloguedExtensionsThatAreDisabledByDefault()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo document = workspace.CreateFile("document.pdf", 10_000);
+        FileInfo archive = workspace.CreateFile("backup.zip", 10_000);
+
+        List<FileInfo> files = FileScanner.Scan(workspace.RootDirectory, CancellationToken.None);
+
+        Assert.DoesNotContain(files, file => file.FullName == document.FullName);
+        Assert.DoesNotContain(files, file => file.FullName == archive.FullName);
+    }
+
+    [Fact]
+    public void Scan_UsesConfiguredIndividualExtensionSelection()
+    {
+        using TestWorkspace workspace = new();
+        FileInfo selected = workspace.CreateFile("selected.pdf", 10_000);
+        workspace.CreateFile("excluded.docx", 10_000);
+        FileTypeSelection selection = new(new[]
+        {
+            new FileCategoryOptions
+            {
+                Name = "Documents",
+                Kind = MediaKind.Document,
+                Enabled = false,
+                Extensions = new() { "pdf", "docx" },
+                EnabledExtensions = new() { "pdf" }
+            }
+        });
+
+        List<FileInfo> files = FileScanner.Scan(workspace.RootDirectory, CancellationToken.None,
+            fileTypeSelection: selection);
+
+        Assert.Single(files);
+        Assert.Equal(selected.FullName, files[0].FullName);
+    }
+
 }

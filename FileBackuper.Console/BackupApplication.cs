@@ -26,6 +26,7 @@ internal class BackupApplication
         {
             string destinationDirectory = BackupPaths.ResolveDestinationDirectory(options.DestinationDirectory);
             BackupOptionsValidator.Validate(options, destinationDirectory);
+            FileTypeSelection fileTypeSelection = new(options.FileCategories);
             CloudFileState.Configure(options.CloudFileMode);
             FileCopier.CreateDestinationDirectory(destinationDirectory);
             Stat.ConfigureStatusDirectory(destinationDirectory);
@@ -43,7 +44,7 @@ internal class BackupApplication
                 Path.Combine(rulesDirectory, "VideoBlacklistPatterns.txt"));
             MediaFileAnalysisService mediaFileAnalysisService = new(options.MinFileSizeBytes,
                 options.MaxFileSizeBytes, cameraFileNamePatterns, videoBlacklistPatterns,
-                enableExifAnalysis: options.EnableExifAnalysis);
+                enableExifAnalysis: options.EnableExifAnalysis, fileTypeSelection: fileTypeSelection);
             FileSizeGroupService fileSizeGroupService = new(options.FileSizeGroups);
             Stat.ConfigureSizeGroups(options.FileSizeGroups);
             BackupFilePriorityService priorityService = new(fileSizeGroupService);
@@ -53,6 +54,7 @@ internal class BackupApplication
             string instanceId = Guid.NewGuid().ToString("N");
             using BackupJobManager jobManager = new(stateDirectory, destinationDirectory, manifestStore, instanceId,
                 skipDirectoryNames: options.SkipDirectoryNames,
+                fileTypeSelection: fileTypeSelection,
                 includeBrowserCaches: options.IncludeBrowserCaches,
                 minFileSizeBytes: options.MinFileSizeBytes,
                 maxFileSizeBytes: options.MaxFileSizeBytes,

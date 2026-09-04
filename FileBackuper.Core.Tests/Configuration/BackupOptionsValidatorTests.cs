@@ -22,6 +22,42 @@ public class BackupOptionsValidatorTests
     }
 
     [Fact]
+    public void Validate_ThrowsWhenEnabledExtensionIsOutsideCategoryCatalog()
+    {
+        BackupOptions options = new();
+        options.FileCategories.Clear();
+        options.FileCategories.Add(new FileCategoryOptions
+        {
+            Name = "Documents",
+            Kind = MediaKind.Document,
+            Extensions = new() { "pdf" },
+            EnabledExtensions = new() { "docx" }
+        });
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            BackupOptionsValidator.Validate(options, Path.GetTempPath()));
+
+        Assert.Contains("docx", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_AcceptsIndividualExtensionSelection()
+    {
+        BackupOptions options = new();
+        options.FileCategories.Clear();
+        options.FileCategories.Add(new FileCategoryOptions
+        {
+            Name = "Documents",
+            Kind = MediaKind.Document,
+            Enabled = false,
+            Extensions = new() { "txt", "pdf" },
+            EnabledExtensions = new() { ".PDF" }
+        });
+
+        BackupOptionsValidator.Validate(options, Path.GetTempPath());
+    }
+
+    [Fact]
     public void Validate_ThrowsWhenFileSizeGroupsHaveGap()
     {
         BackupOptions options = CreateOptionsWithGroups(
